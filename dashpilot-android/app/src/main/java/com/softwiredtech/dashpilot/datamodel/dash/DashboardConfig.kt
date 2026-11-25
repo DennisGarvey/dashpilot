@@ -38,6 +38,15 @@ val availableDashboards = buildList {
     )
     add(
         DashboardConfig(
+            id = "aperture",
+            nameRes = R.string.dashboard_name_aperture,
+            url = "${LOCAL_ASSET_BASE_URL}web-aperture/index.html",
+            type = DashboardType.WEB,
+            screenshotRes = R.drawable.preview_aperture,
+        )
+    )
+    add(
+        DashboardConfig(
             id = "ambient",
             nameRes = R.string.dashboard_name_ambient,
             url = "${LOCAL_ASSET_BASE_URL}web-ambient/index.html",

@@ -565,6 +565,105 @@ CM_ BO_ 306 "CHANGED: DLC 8 -> 6, vehicle bus only, 100 Hz. packVoltage 381 V, p
 CM_ BO_ 818 "Layout unchanged, vehicle bus only, 1 Hz. Mux 0 thermistorTMax 18.0 / TMin 17.5 degC.";
 CM_ BO_ 950 "CHANGED: DLC 4 -> 8, vehicle + chassis bus, 1 Hz. DI_odometer unchanged (3651.992 km). New counter (52|4) and bytesum checksum (56|8, verified on every frame); bits 32-51 read 0.";
 CM_ BO_ 1029 "Layout unchanged, vehicle + chassis bus, 4 Hz. Index 16 = 4 NUL bytes + WMI (3 chars), 17 = chars 4-10, 18 = chars 11-17.";
+BO_ 658 BMS_socStatus: 8 BMS
+ SG_ BMS_enoughEnergyForConvenienceFe : 40|1@1+ (1,0) [0|1] "" X
+ SG_ BMS_socUI : 10|10@1+ (0.1,0) [0|100] "%" Vector__XXX
+
+BO_ 2047 GTW_carConfig: 8 GTW
+ SG_ GTW_carConfigMultiplexer M : 0|8@1+ (1,0) [0|255] "" X
+ SG_ GTW_exteriorColor m2 : 48|5@1+ (1,0) [0|31] "" X
+ SG_ GTW_mapRegion m3 : 8|4@1+ (1,0) [0|15] "" Vector__XXX
+
+BO_ 1497 DAS_carLog: 8 DAS
+ SG_ DAS_carLogMultiplexer M : 0|4@1+ (1,0) [0|15] "" Vector__XXX
+ SG_ DAS_LC_handsOnReason m2 : 24|6@1+ (1,0) [0|63] "" Vector__XXX
+
+BO_ 810 DAS_warningMatrix0: 8 DAS
+ SG_ DAS_w042_autopilotAborting : 41|1@1+ (1,0) [0|1] "" Vector__XXX
+
+BO_ 1021 UI_autopilotControl: 8 GTW
+ SG_ UI_autopilotControlIndex M : 0|3@1+ (1,0) [0|7] "" Vector__XXX
+ SG_ UI_enableFullSelfDriving m0 : 46|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ UI_autopilotDrivingProfile m2 : 60|3@1+ (1,0) [0|7] "" Vector__XXX
+
+BO_ 659 UI_chassisControl: 8 GTW
+ SG_ UI_distanceUnits : 13|1@1+ (1,0) [0|1] "" Vector__XXX
+
+BO_ 883 UI_gpsVehicleSpeed: 8 GTW
+ SG_ UI_mapSpeedLimitUnits : 46|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ UI_mppSpeedLimit : 48|5@1+ (5,0) [0|155] "kph/mph" Vector__XXX
+
+BO_ 760 UI_gpsVehicleSpeedCH: 8 GTW
+ SG_ UI_mapSpeedLimitUnits : 46|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ UI_mppSpeedLimit : 48|5@1+ (5,0) [0|155] "kph/mph" Vector__XXX
+
+BO_ 801 VCFRONT_sensors: 8 VCFRONT
+ SG_ VCFRONT_tempAmbientFiltered : 40|8@1+ (0.5,-40) [-39.5|80] "degC" Vector__XXX
+
+BO_ 317 CP_chargeStatus: 6 CP
+ SG_ CP_powerTransferStatus : 0|3@1+ (1,0) [0|7] "" Vector__XXX
+ SG_ CP_evseAcCurrentLimit : 8|8@1+ (0.5,0) [0|127.5] "A" Vector__XXX
+ SG_ CP_evseChargeType : 40|2@1+ (1,0) [0|3] "" Vector__XXX
+
+BO_ 796 CC_chgStatus: 8 CC
+ SG_ CC_numPhases : 10|2@1+ (1,0) [1|3] "" Vector__XXX
+
+BO_ 612 PCS_chgLineStatus: 6 PCS
+ SG_ PCS_chgInputVoltage : 0|14@1+ (0.033,0) [0|540.639] "V" Vector__XXX
+ SG_ PCS_chgLineCurrent : 14|9@1+ (0.1,0) [0|50] "A" Vector__XXX
+ SG_ PCS_chgInputPower : 24|8@1+ (0.1,0) [0|20] "kW" Vector__XXX
+
+BO_ 530 BMS_status: 8 BMS
+ SG_ BMS_batteryInputPower : 14|16@1+ (0.05,0) [0|3276.7] "kW" Vector__XXX
+
+BO_ 827 UI_powerEstimates: 6 GTW
+ SG_ UI_chargeTimeUntilTerminationPct : 16|11@1+ (1,0) [0|2046] "min" Vector__XXX
+
+BO_ 826 UI_range: 8 GTW
+ SG_ UI_ratedRange : 0|10@1+ (1,0) [0|1023] "mi" Vector__XXX
+
+BO_ 258 VCLEFT_doorStatus: 8 VCLEFT
+ SG_ VCLEFT_frontLatchStatus : 14|4@1+ (1,0) [1|15] "" Vector__XXX
+ SG_ VCLEFT_rearLatchStatus : 18|4@1+ (1,0) [1|15] "" Vector__XXX
+
+BO_ 259 VCRIGHT_doorStatus: 8 VCRIGHT
+ SG_ VCRIGHT_frontLatchStatus : 14|4@1+ (1,0) [1|15] "" Vector__XXX
+ SG_ VCRIGHT_rearLatchStatus : 18|4@1+ (1,0) [1|15] "" Vector__XXX
+ SG_ VCRIGHT_trunkLatchStatus : 56|4@1+ (1,0) [1|15] "" Vector__XXX
+
+BO_ 322 VCLEFT_liftgateStatus: 8 VCLEFT
+ SG_ VCLEFT_liftgateStatusIndex M : 0|2@1+ (1,0) [0|3] "" Vector__XXX
+ SG_ VCLEFT_liftgatePosition m1 : 21|7@1- (1,46) [-5|95] "deg" Vector__XXX
+
+BO_ 1010 BMS_kwhCountersMultiplexed: 8 BMS
+ SG_ BMS_kwhCounter_Id M : 0|4@1+ (1,0) [0|15] "" Vector__XXX
+ SG_ BMS_acChargerKwhTotal m0 : 8|32@1+ (0.001,0) [0|268435.456] "KWh" Vector__XXX
+ SG_ BMS_dcChargerKwhTotal m1 : 8|32@1+ (0.001,0) [0|268435.456] "KWh" Vector__XXX
+
+BO_ 1013 VCFRONT_lighting: 8 VCFRONT
+ SG_ VCFRONT_highBeamControlState : 28|2@1+ (1,0) [0|3] "" Vector__XXX
+ SG_ VCFRONT_lightingCoreState : 32|4@1+ (1,0) [0|14] "" Vector__XXX
+ SG_ VCFRONT_latchedHighBeamsFunction : 37|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ VCFRONT_frontFogFunctionState : 38|1@1+ (1,0) [0|1] "" Vector__XXX
+
+BO_ 694 DI_chassisControlStatus: 3 DI
+ SG_ DI_vdcTelltaleFlash : 0|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ DI_vdcTelltaleOn : 1|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ DI_tcTelltaleFlash : 2|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ DI_tcTelltaleOn : 3|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ DI_vehicleHoldTelltaleOn : 10|1@1+ (1,0) [0|1] "" Vector__XXX
+
+BO_ 529 RCM_status: 6 RCM
+ SG_ RCM_warningIndicatorState : 14|2@1+ (1,0) [0|2] "" Vector__XXX
+
+BO_ 879 TPMS_StatusC: 8 TPMS
+ SG_ TPMS_c_globalHardWarning : 0|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ TPMS_systemMalfunction : 2|1@1+ (1,0) [0|1] "" Vector__XXX
+
+BO_ 981 ESP_alertMatrix: 8 ESP
+ SG_ ESP_matrixIndex M : 0|4@1+ (1,0) [0|15] "" Vector__XXX
+ SG_ ESP_a102_absFault m1 : 45|1@1+ (1,0) [0|1] "" Vector__XXX
+
 VAL_ 585 SCCM_highBeamStalkStatus 0 "IDLE" 1 "PULL" 2 "PUSH" 3 "SNA" ;
 VAL_ 585 SCCM_washWipeButtonStatus 0 "NOT_PRESSED" 1 "1ST_DETENT" 2 "2ND_DETENT" 3 "SNA" ;
 VAL_ 585 SCCM_turnIndicatorStalkStatus 0 "IDLE" 1 "UP_0_5" 2 "UP_1" 3 "UP_1_5" 4 "UP_2" 5 "DOWN_0_5" 6 "DOWN_1" 7 "DOWN_1_5" 8 "DOWN_2" 9 "SNA" ;

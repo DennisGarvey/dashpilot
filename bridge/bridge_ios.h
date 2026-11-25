@@ -77,6 +77,34 @@ typedef struct {
     double ambientLightingAvailable;
     uint32_t ambientLightingColor;
     double ambientLightingBrightness;
+    double displayInDarkMode;
+    double exteriorColor;
+    double enoughEnergyForConvenienceFeatures;
+    double autopilotState;
+    double autopilotHandsOnState;
+    double autopilotAborting;
+    double handsOnReason;
+    double fsdEnabled;
+    double drivingProfile;
+    double distanceUnits;
+    double uiSpeedUnits;
+    double mapSpeedUnits;
+    double mapRegion;
+    double mapLimit;
+    double soc;
+    double ambientTempC;
+    double chargeTransferState;
+    double chargeType;
+    double chargeMinutes;
+    double ratedRangeMiles;
+    double chargeVolts;
+    double chargeAmps;
+    double chargeInputKw;
+    double evseAcCurrentLimit;
+    double chargePhases;
+    double batteryInputKw;
+    double chargeMeterKwh;
+    double telltaleBits;
 } BridgeCarState;
 
 // Context

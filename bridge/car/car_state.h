@@ -89,7 +89,40 @@ struct CarState {
     double ambientLightingColor = 0;  // Packed RGB (0xRRGGBB).
     double ambientLightingBrightness = 0;
     static constexpr size_t AMBIENT_OFFSET = DOOR_OFFSET + DOOR_COUNT;
-    static constexpr size_t FIELD_COUNT = AMBIENT_OFFSET + 3;
+    double displayInDarkMode = -1;
+    double exteriorColor = -1;
+    static constexpr size_t DISPLAY_OFFSET = AMBIENT_OFFSET + 3;
+    double enoughEnergyForConvenienceFeatures = -1;
+
+    // Optional instrument-cluster signals. Negative values indicate missing data,
+    // except for ambient temperature, which uses -1000 instead.
+    double autopilotState = -1;
+    double autopilotHandsOnState = -1;
+    double autopilotAborting = -1;
+    double handsOnReason = -1;
+    double fsdEnabled = -1;
+    double drivingProfile = -1;
+    double distanceUnits = -1;
+    double uiSpeedUnits = -1;
+    double mapSpeedUnits = -1;
+    double mapRegion = -1;
+    double mapLimit = -1;
+    double soc = -1;
+    double ambientTempC = -1000;
+    double chargeTransferState = -1;
+    double chargeType = -1;
+    double chargeMinutes = -1;
+    double ratedRangeMiles = -1;
+    double chargeVolts = -1;
+    double chargeAmps = -1;
+    double chargeInputKw = -1;
+    double evseAcCurrentLimit = -1;
+    double chargePhases = -1;
+    double batteryInputKw = -1;
+    double chargeMeterKwh = -1;
+    double telltaleBits = 0;
+    static constexpr size_t INSTRUMENT_OFFSET = DISPLAY_OFFSET + 3;
+    static constexpr size_t FIELD_COUNT = INSTRUMENT_OFFSET + 25;
 
     void toArray(double* out) const {
         // Party bus
@@ -167,5 +200,33 @@ struct CarState {
         out[AMBIENT_OFFSET + 0] = ambientLightingAvailable;
         out[AMBIENT_OFFSET + 1] = ambientLightingColor;
         out[AMBIENT_OFFSET + 2] = ambientLightingBrightness;
+        out[DISPLAY_OFFSET] = displayInDarkMode;
+        out[DISPLAY_OFFSET + 1] = exteriorColor;
+        out[DISPLAY_OFFSET + 2] = enoughEnergyForConvenienceFeatures;
+        out[INSTRUMENT_OFFSET + 0] = autopilotState;
+        out[INSTRUMENT_OFFSET + 1] = autopilotHandsOnState;
+        out[INSTRUMENT_OFFSET + 2] = autopilotAborting;
+        out[INSTRUMENT_OFFSET + 3] = handsOnReason;
+        out[INSTRUMENT_OFFSET + 4] = fsdEnabled;
+        out[INSTRUMENT_OFFSET + 5] = drivingProfile;
+        out[INSTRUMENT_OFFSET + 6] = distanceUnits;
+        out[INSTRUMENT_OFFSET + 7] = uiSpeedUnits;
+        out[INSTRUMENT_OFFSET + 8] = mapSpeedUnits;
+        out[INSTRUMENT_OFFSET + 9] = mapRegion;
+        out[INSTRUMENT_OFFSET + 10] = mapLimit;
+        out[INSTRUMENT_OFFSET + 11] = soc;
+        out[INSTRUMENT_OFFSET + 12] = ambientTempC;
+        out[INSTRUMENT_OFFSET + 13] = chargeTransferState;
+        out[INSTRUMENT_OFFSET + 14] = chargeType;
+        out[INSTRUMENT_OFFSET + 15] = chargeMinutes;
+        out[INSTRUMENT_OFFSET + 16] = ratedRangeMiles;
+        out[INSTRUMENT_OFFSET + 17] = chargeVolts;
+        out[INSTRUMENT_OFFSET + 18] = chargeAmps;
+        out[INSTRUMENT_OFFSET + 19] = chargeInputKw;
+        out[INSTRUMENT_OFFSET + 20] = evseAcCurrentLimit;
+        out[INSTRUMENT_OFFSET + 21] = chargePhases;
+        out[INSTRUMENT_OFFSET + 22] = batteryInputKw;
+        out[INSTRUMENT_OFFSET + 23] = chargeMeterKwh;
+        out[INSTRUMENT_OFFSET + 24] = telltaleBits;
     }
 };

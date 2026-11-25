@@ -65,6 +65,34 @@ static void carStateToBridge(const CarState& cs, BridgeCarState* out) {
     out->ambientLightingAvailable = cs.ambientLightingAvailable;
     out->ambientLightingColor = static_cast<uint32_t>(cs.ambientLightingColor);
     out->ambientLightingBrightness = cs.ambientLightingBrightness;
+    out->displayInDarkMode = cs.displayInDarkMode;
+    out->exteriorColor = cs.exteriorColor;
+    out->enoughEnergyForConvenienceFeatures = cs.enoughEnergyForConvenienceFeatures;
+    out->autopilotState = cs.autopilotState;
+    out->autopilotHandsOnState = cs.autopilotHandsOnState;
+    out->autopilotAborting = cs.autopilotAborting;
+    out->handsOnReason = cs.handsOnReason;
+    out->fsdEnabled = cs.fsdEnabled;
+    out->drivingProfile = cs.drivingProfile;
+    out->distanceUnits = cs.distanceUnits;
+    out->uiSpeedUnits = cs.uiSpeedUnits;
+    out->mapSpeedUnits = cs.mapSpeedUnits;
+    out->mapRegion = cs.mapRegion;
+    out->mapLimit = cs.mapLimit;
+    out->soc = cs.soc;
+    out->ambientTempC = cs.ambientTempC;
+    out->chargeTransferState = cs.chargeTransferState;
+    out->chargeType = cs.chargeType;
+    out->chargeMinutes = cs.chargeMinutes;
+    out->ratedRangeMiles = cs.ratedRangeMiles;
+    out->chargeVolts = cs.chargeVolts;
+    out->chargeAmps = cs.chargeAmps;
+    out->chargeInputKw = cs.chargeInputKw;
+    out->evseAcCurrentLimit = cs.evseAcCurrentLimit;
+    out->chargePhases = cs.chargePhases;
+    out->batteryInputKw = cs.batteryInputKw;
+    out->chargeMeterKwh = cs.chargeMeterKwh;
+    out->telltaleBits = cs.telltaleBits;
 }
 
 static std::atomic<bool> receiveLoopRunning{false};

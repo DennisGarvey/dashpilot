@@ -31,6 +31,13 @@ let availableDashboards: [DashboardConfig] = [
         screenshotName: "preview_vanilla-v2"
     ),
     DashboardConfig(
+        id: "aperture",
+        name: "Aperture",
+        url: "aperture",
+        type: .web,
+        screenshotName: "preview_aperture"
+    ),
+    DashboardConfig(
         id: "ambient",
         name: String(localized: "Ambient Dashboard"),
         url: "ambient",

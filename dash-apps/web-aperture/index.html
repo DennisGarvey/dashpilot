@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aperture · DashPilot</title>
+<link rel="stylesheet" href="style.css">
+<script defer src="telltales.js"></script>
+<script defer src="dash.js"></script>
+</head>
+<body>
+<main>
+  <header><div class="brand">DASHPILOT <span> / </span> APERTURE</div><div id="status" class="status">SIMULATION</div></header>
+  <section class="cluster" id="cluster" aria-label="Instrument cluster">
+    <div class="instruments">
+      <div class="readout" id="drive">
+        <div class="speed-row">
+          <div class="speed" id="speed">—</div>
+          <div class="units" id="units">mph</div>
+          <div class="secondary" id="secondary"></div>
+          <div class="assist" id="assist" hidden>
+            <div><strong id="assistValue"></strong><small>MAX</small></div>
+            <img id="wheel" src="icons/autosteer-active.png" alt="Autopilot active" hidden>
+          </div>
+          <div class="fsd-profile" id="fsdProfile" hidden>
+            <small>Self-Driving</small>
+            <strong id="fsdProfileValue"></strong>
+          </div>
+        </div>
+      </div>
+      <div class="alert" id="alert" role="status"></div>
+    </div>
+    <div class="vehicle">
+      <div class="turn-arrows" id="turnArrows">
+        <svg class="turn-arrow turn-arrow-left" id="turnArrowLeft" viewBox="0 0 25 25" role="img" aria-label="Left turn signal" aria-hidden="true">
+          <path d="M15.12,1.074L1.002,11.571C0.199,12.169 0.199,13.432 1.002,14.029L15.12,24.526L15.256,24.616C16.175,25.153 17.341,24.453 17.341,23.298L17.341,17.296L22.988,17.299C23.768,17.299 24.4,16.628 24.4,15.799L24.4,9.801L24.391,9.626C24.309,8.88 23.713,8.301 22.989,8.301L17.341,8.299L17.341,2.302C17.341,1.089 16.056,0.378 15.12,1.074Z"/>
+        </svg>
+        <svg class="turn-arrow turn-arrow-right" id="turnArrowRight" viewBox="0 0 25 25" role="img" aria-label="Right turn signal" aria-hidden="true">
+          <path d="M9.68,1.074L23.798,11.571C24.601,12.169 24.601,13.432 23.798,14.029L9.68,24.526L9.544,24.616C8.625,25.153 7.459,24.453 7.459,23.298L7.459,17.296L1.812,17.299C1.032,17.299 0.4,16.628 0.4,15.799L0.4,9.801L0.41,9.626C0.491,8.88 1.088,8.301 1.812,8.301L7.459,8.299L7.459,2.302C7.459,1.089 8.745,0.378 9.68,1.074Z"/>
+        </svg>
+      </div>
+      <div class="vehicle-heading"><span id="vehicleTitle">VEHICLE</span><span id="vehicleStatus"></span></div>
+      <div class="scene" id="scene">
+        <svg class="lane-preview" viewBox="0 0 600 400" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="fsdRouteFill" x1="0" y1="0" x2="0" y2="270" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#286bea" stop-opacity=".38"/>
+              <stop offset="1" stop-color="#247dff" stop-opacity=".92"/>
+            </linearGradient>
+          </defs>
+          <path id="laneShoulderLeft" class="lane-shoulder"/>
+          <path id="laneShoulderRight" class="lane-shoulder"/>
+          <path id="laneLeft" class="lane-edge"/>
+          <path id="laneRight" class="lane-edge"/>
+          <path id="laneRoute" class="lane-route"/>
+          <path id="navRoute" class="nav-route"/>
+        </svg>
+        <div class="road-prompt" id="roadPrompt" role="status" hidden>
+          <img src="icons/driver-attention.png" alt="">
+          <span id="roadPromptText"></span>
+        </div>
+        <div class="car" role="img" aria-label="Tesla Model 3 Highland">
+          <div class="car-render driving-render" id="drivingCar"></div>
+          <div class="car-render driving-render" id="drivingCarBlend"></div>
+          <img class="car-render parked-render" id="parkedCar" src="paint/charge-6.webp" alt="">
+          <div class="panel hood" data-panel="frunk"></div><div class="panel hatch" data-panel="liftgate"></div>
+          <div class="panel door fl" data-panel="frontLeft"></div><div class="panel door fr" data-panel="frontRight"></div>
+          <div class="panel door rl" data-panel="rearLeft"></div><div class="panel door rr" data-panel="rearRight"></div>
+          <div class="panel port" data-panel="chargePort"></div>
+          <div class="cable" id="cable" hidden></div>
+        </div>
+      </div>
+      <section class="takeover" id="takeover" role="alert" hidden>
+        <svg class="takeover-symbol" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3 2 21h20L12 3Zm0 6v5m0 3h.01"/>
+        </svg>
+        <strong>Take Over Immediately</strong>
+        <div class="takeover-wheel"><img src="icons/takeover-wheel.png" alt=""></div>
+      </section>
+      <div id="closures" class="closures"></div>
+    </div>
+    <section class="charging-view" id="charge" aria-label="Charging" hidden>
+      <div class="charging-eta">
+        <span>Time remaining</span>
+        <strong id="chargeTime">—</strong>
+        <div id="chargeBasis"></div>
+      </div>
+      <div class="charging-scene">
+        <img class="charging-car" id="chargingCar" src="paint/charge-6.webp" alt="Model 3">
+      </div>
+      <div class="charging-info">
+        <div class="charging-summary">
+          <strong>Charging</strong>
+          <div class="charging-electrical" id="chargeElectrical" hidden>
+            <span class="phase-count" id="chargePhases" hidden></span>
+            <span id="amps"></span><span id="volts"></span>
+          </div>
+          <span class="charge-power-label" id="chargePowerLabel" hidden>Charge rate</span>
+          <strong id="chargePower"></strong>
+        </div>
+        <dl class="charging-stats">
+          <div id="chargeRateRow" hidden><dt>Charge rate</dt><dd id="chargeRate"></dd></div>
+          <div><dt>Energy added</dt><dd id="energy"></dd></div>
+          <div><dt>Range added</dt><dd id="range"></dd></div>
+        </dl>
+      </div>
+    </section>
+    <div class="badges" id="driveBadges">
+      <div class="sign" id="sign"><small id="signLabel">SPEED<br>LIMIT</small><strong id="limit"></strong></div>
+    </div>
+    <div class="indicator-band">
+      <div class="telltales telltales-left" id="telltalesLeft" aria-label="Lighting and system indicators"></div>
+      <div class="telltales telltales-right" id="telltalesRight" aria-label="Safety indicators"></div>
+    </div>
+    <div class="vehicle-status">
+      <div class="battery-status" id="batteryStatus">
+        <span class="battery-icon" aria-hidden="true"><i id="batteryLevel"></i></span>
+        <span id="batteryPercent"></span>
+      </div>
+      <span id="ambientTemperature"></span>
+    </div>
+    <div class="power" id="power" aria-label="Power and regeneration"><i id="regenLimit"></i><i id="driveLimit"></i><i id="powerFill"></i></div>
+    <div class="drive-status">
+      <div class="gears" id="gears" aria-label="Gear"></div>
+      <time id="clock"></time>
+    </div>
+  </section>
+  <section id="demo" class="demo" aria-label="Simulation controls">
+    <div class="modes"><button data-mode="drive">Manual</button><button data-mode="ready">Autosteer ready</button><button data-mode="ap">Autopilot</button><button data-mode="nav">Navigate on Autopilot</button><button data-mode="fsd">FSD</button><button data-mode="park">Parked</button><button data-mode="ac">AC charge</button><button data-mode="dc">DC charge</button></div>
+    <div class="controls">
+      <label>Steering <input id="steering" type="range" min="-180" max="180" value="24"></label>
+      <label>Speed <input id="demoSpeed" type="range" min="0" max="150" value="100"></label>
+      <label>Battery <input id="demoBattery" type="range" min="0" max="100" step="1" value="72"><output id="demoBatteryValue" for="demoBattery">72%</output></label>
+      <label>Battery energy flag <select id="demoConvenienceEnergy">
+        <option value="-1">Unavailable</option><option value="1">Enough energy</option><option value="0">Low energy</option>
+      </select></label>
+      <label>Car units <select id="carUnits"><option value="mph">mph</option><option value="km/h">km/h</option></select></label>
+      <label>Map <select id="map"><option value="eu">EU · km/h</option><option value="us">US · mph</option><option value="ca">Canada · km/h</option></select></label>
+      <label><input id="demoDarkMode" type="checkbox"> Car dark mode</label>
+      <label>Car paint <select id="demoPaint"><option value="6">Pearl white</option><option value="10">Ultra red</option><option value="5">Deep Blue Metallic</option><option value="9">Quicksilver</option><option value="11">Stealth grey</option><option value="1">Solid black</option></select></label>
+      <label>App units <select id="appUnits"><option value="imperial">Imperial</option><option value="metric">Metric</option></select></label>
+      <label>Driver alert <select id="demoAlert">
+        <option value="">None</option>
+        <option value="turning">Apply turning force</option>
+        <option value="attention">Pay attention to the road</option>
+        <option value="takeover">Take over immediately</option>
+      </select></label>
+      <label><input id="demoAlertEscalated" type="checkbox"> Escalated alert</label>
+      <label>FSD profile <select id="demoFsdProfile">
+        <option>Sloth</option><option>Chill</option><option selected>Standard</option>
+        <option>Hurry</option><option>Mad Max</option>
+      </select></label>
+      <label>Turn signals <select id="demoTurnSignals">
+        <option value="">Off</option>
+        <option value="left">Left</option>
+        <option value="right">Right</option>
+        <option value="hazards">Hazards</option>
+      </select></label>
+      <label><input id="warnings" type="checkbox"> Telltale test</label>
+    </div>
+  </section>
+</main>
+</body>
+</html>

@@ -116,7 +116,118 @@ static inline void updateClosures(const CANParsers& cp, CarState& cs) {
     }
 }
 
+static inline void updateInstrumentCluster(const CANParsers& cp, CarState& cs) {
+    uint64_t bits = 0;
+    const auto read = [&](int bus, const char* message, const char* signal, size_t length) {
+        return cp.getRaw(bus, message, signal, &bits, length);
+    };
+
+    if (read(0, "DAS_status", "DAS_autopilotState", 1)) cs.autopilotState = bits;
+    if (read(0, "DAS_status", "DAS_autopilotHandsOnState", 6)) cs.autopilotHandsOnState = bits;
+    if (read(0, "DAS_warningMatrix0", "DAS_w042_autopilotAborting", 6)) cs.autopilotAborting = bits;
+    if (read(0, "DAS_carLog", "DAS_LC_handsOnReason", 4)) cs.handsOnReason = bits;
+    if (cs.autopilotHandsOnState < 3) cs.handsOnReason = -1;
+
+    if (read(0, "UI_autopilotControl", "UI_enableFullSelfDriving", 6) ||
+        read(1, "UI_autopilotControl", "UI_enableFullSelfDriving", 6)) cs.fsdEnabled = bits;
+    if (read(0, "UI_autopilotControl", "UI_autopilotDrivingProfile", 8) ||
+        read(1, "UI_autopilotControl", "UI_autopilotDrivingProfile", 8)) cs.drivingProfile = bits;
+    const auto readSpeed = [&](int bus) {
+        if (!read(bus, "DI_speed", "DI_uiSpeed", 5) || bits == 255) return false;
+        const auto speed = bits;
+        if (!read(bus, "DI_speed", "DI_uiSpeedUnits", 5)) return false;
+        cs.egoSpeed = speed;
+        cs.uiSpeedUnits = bits;
+        return true;
+    };
+    cs.uiSpeedUnits = -1;
+    if (!readSpeed(0)) readSpeed(1);
+    if (!read(0, "DI_systemStatus", "DI_gear", 3) &&
+        read(1, "DI_systemStatus", "DI_gear", 3)) cs.gear = bits;
+    if (read(1, "UI_chassisControl", "UI_distanceUnits", 3) ||
+        read(0, "UI_chassisControl", "UI_distanceUnits", 3)) cs.distanceUnits = bits;
+    if (read(1, "GTW_carConfig", "GTW_mapRegion", 2)) cs.mapRegion = bits;
+
+    const auto map = [&](int bus, const char* message) {
+        if (!read(bus, message, "UI_mapSpeedLimitUnits", 7)) return false;
+        cs.mapSpeedUnits = bits;
+        if (read(bus, message, "UI_mppSpeedLimit", 7)) cs.mapLimit = bits < 31 ? bits * 5.0 : -1;
+        return true;
+    };
+    if (!map(1, "UI_gpsVehicleSpeed") && !map(0, "UI_gpsVehicleSpeedCH")) {
+        map(0, "UI_gpsVehicleSpeed");
+    }
+
+    if (read(1, "BMS_socStatus", "BMS_socUI", 3)) cs.soc = bits <= 1000 ? bits * 0.1 : -1;
+    if (read(1, "VCFRONT_sensors", "VCFRONT_tempAmbientFiltered", 6)) {
+        cs.ambientTempC = bits > 0 && bits <= 240 ? bits * 0.5 - 40 : -1000;
+    }
+
+    if (read(1, "CP_chargeStatus", "CP_powerTransferStatus", 1) ||
+        read(1, "CP_chargeStatus", "CP_hvChargeStatus", 1)) cs.chargeTransferState = bits;
+    if (read(1, "CP_chargeStatus", "CP_evseChargeType", 6) && cs.chargeType != bits) {
+        cs.chargeType = bits;
+        cs.chargeMeterKwh = -1;
+    }
+    if (read(1, "BMS_kwhCountersMultiplexed", "BMS_acChargerKwhTotal", 5) && cs.chargeType == 2) {
+        cs.chargeMeterKwh = bits == 0xFFFFFFFFu ? -1 : bits * 0.001;
+    }
+    if (read(1, "BMS_kwhCountersMultiplexed", "BMS_dcChargerKwhTotal", 5) && cs.chargeType == 1) {
+        cs.chargeMeterKwh = bits == 0xFFFFFFFFu ? -1 : bits * 0.001;
+    }
+    if (read(1, "CP_chargeStatus", "CP_evseAcCurrentLimit", 2) ||
+        read(1, "CP_chargeStatus", "CP_acChargeCurrentLimit", 2)) cs.evseAcCurrentLimit = bits * 0.5;
+    if (read(1, "CC_chgStatus", "CC_numPhases", 2)) cs.chargePhases = bits;
+    if (read(1, "PCS_chgLineStatus", "PCS_chgInputVoltage", 2)) cs.chargeVolts = bits * 0.033;
+    if (read(1, "PCS_chgLineStatus", "PCS_chgLineCurrent", 3)) cs.chargeAmps = bits * 0.1;
+    if (read(1, "PCS_chgLineStatus", "PCS_chgInputPower", 4)) cs.chargeInputKw = bits * 0.1;
+    if (read(1, "BMS_status", "BMS_batteryInputPower", 4)) cs.batteryInputKw = bits == 65535 ? -1 : bits * 0.05;
+    if (read(1, "UI_powerEstimates", "UI_chargeTimeUntilTerminationPct", 4)) {
+        cs.chargeMinutes = bits <= 1440 ? static_cast<double>(bits) : -1;
+    }
+    if (read(1, "UI_range", "UI_ratedRange", 2)) cs.ratedRangeMiles = bits;
+
+    const auto lamp = [&](int bus, const char* message, const char* signal,
+                          size_t length, uint64_t expected, unsigned position) {
+        return read(bus, message, signal, length) && bits == expected ? 1u << position : 0u;
+    };
+    unsigned telltales = 0;
+    if (read(1, "VCFRONT_lighting", "VCFRONT_lightingCoreState", 5)) {
+        if (bits == 1 || bits == 3) telltales |= 1u << 0;
+        if (bits == 4) telltales |= 1u << 1;
+    }
+    telltales |= lamp(1, "VCFRONT_lighting", "VCFRONT_latchedHighBeamsFunction", 5, 1, 2);
+    telltales |= lamp(1, "VCFRONT_lighting", "VCFRONT_highBeamControlState", 4, 3, 3);
+    telltales |= lamp(1, "VCFRONT_lighting", "VCFRONT_frontFogFunctionState", 5, 1, 4);
+    telltales |= lamp(1, "DI_chassisControlStatus", "DI_vehicleHoldTelltaleOn", 2, 1, 5);
+    telltales |= lamp(1, "DI_chassisControlStatus", "DI_vdcTelltaleOn", 1, 1, 6);
+    telltales |= lamp(1, "DI_chassisControlStatus", "DI_vdcTelltaleFlash", 1, 1, 7);
+    telltales |= lamp(1, "DI_chassisControlStatus", "DI_tcTelltaleOn", 1, 1, 8);
+    telltales |= lamp(1, "DI_chassisControlStatus", "DI_tcTelltaleFlash", 1, 1, 9);
+    telltales |= lamp(0, "RCM_status", "RCM_warningIndicatorState", 2, 1, 10);
+    telltales |= lamp(0, "TPMS_StatusC", "TPMS_c_globalHardWarning", 1, 1, 11);
+    telltales |= lamp(0, "TPMS_StatusC", "TPMS_systemMalfunction", 1, 1, 12);
+    telltales |= lamp(0, "ESP_alertMatrix", "ESP_a102_absFault", 6, 1, 13);
+    cs.telltaleBits = telltales;
+}
+
 static inline void updateVehicleBus(const CANParsers& cp, CarState& cs) {
+    updateInstrumentCluster(cp, cs);
+    uint64_t displayMode = 0;
+    if (cp.getRaw(1, "UI_status2", "UI_displayInDarkMode", &displayMode, 3) ||
+        cp.getRaw(0, "UI_status2", "UI_displayInDarkMode", &displayMode, 3)) {
+        cs.displayInDarkMode = displayMode;
+    }
+    uint64_t exteriorColor = 0;
+    if (cp.getRaw(1, "GTW_carConfig", "GTW_exteriorColor", &exteriorColor, 7)) {
+        cs.exteriorColor = exteriorColor;
+    }
+
+    uint64_t convenienceEnergy = 0;
+    if (cp.getRaw(1, "BMS_socStatus", "BMS_enoughEnergyForConvenienceFe", &convenienceEnergy, 6)) {
+        cs.enoughEnergyForConvenienceFeatures = convenienceEnergy;
+    }
+
     // Vehicle bus specific signals
     // BMS_energyStatus is multiplexed: mux 0 has pack/remaining energy, mux 1 has energyBuffer
     int muxIdx = static_cast<int>(cp.get(1, "BMS_energyStatus", "BMS_energyStatusIndex"));
@@ -294,6 +405,7 @@ public:
         cs.hvacRecirc = cp.get(0, "UI_hvacRequest", "UI_hvacReqRecirc");
         cs.hvacKeepClimateOn = cp.get(0, "UI_hvacRequest", "UI_hvacReqKeepClimateOn");
 
+        updateClosures(cp, cs);
         updateVehicleBus(cp, cs);
         vin_.update(cp, cs);
     }

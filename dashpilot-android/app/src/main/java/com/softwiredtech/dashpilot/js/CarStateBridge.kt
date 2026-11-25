@@ -53,6 +53,10 @@ class CarStateBridge(
     @Volatile private var showOdometer: Boolean = true
     @Volatile private var useImperial: Boolean = false
     @Volatile private var darkMode: Boolean = false
+    @Volatile private var displayInDarkMode: Int = -1
+    @Volatile private var exteriorColor: Int = -1
+    @Volatile private var enoughEnergyForConvenienceFeatures: Int = -1
+    @Volatile private var instrumentState = CarState()
     @Volatile private var alwaysOnBlindSpotMonitor: Boolean = true
     @Volatile private var renderQuality: Int = 3
     @Volatile private var darkModeBackgroundGray: Int = 0
@@ -74,6 +78,10 @@ class CarStateBridge(
 
     fun update(state: CarState) {
         egoSteeringAngle = state.egoSteeringAngle
+        displayInDarkMode = state.displayInDarkMode
+        exteriorColor = state.exteriorColor
+        enoughEnergyForConvenienceFeatures = state.enoughEnergyForConvenienceFeatures
+        instrumentState = state
         egoSpeed = state.egoSpeed
         leftBlinker = state.leftBlinker
         rightBlinker = state.rightBlinker
@@ -163,6 +171,34 @@ class CarStateBridge(
     @JavascriptInterface fun getShowOdometer(): Boolean = showOdometer
     @JavascriptInterface fun isImperial(): Boolean = useImperial
     @JavascriptInterface fun isDarkMode(): Boolean = darkMode
+    @JavascriptInterface fun getDisplayInDarkMode(): Int = displayInDarkMode
+    @JavascriptInterface fun getExteriorColor(): Int = exteriorColor
+    @JavascriptInterface fun getEnoughEnergyForConvenienceFeatures(): Int = enoughEnergyForConvenienceFeatures
+    @JavascriptInterface fun getAutopilotState(): Double = instrumentState.autopilotState
+    @JavascriptInterface fun getAutopilotHandsOnState(): Double = instrumentState.autopilotHandsOnState
+    @JavascriptInterface fun getAutopilotAborting(): Double = instrumentState.autopilotAborting
+    @JavascriptInterface fun getHandsOnReason(): Double = instrumentState.handsOnReason
+    @JavascriptInterface fun getFsdEnabled(): Double = instrumentState.fsdEnabled
+    @JavascriptInterface fun getDrivingProfile(): Double = instrumentState.drivingProfile
+    @JavascriptInterface fun getDistanceUnits(): Double = instrumentState.distanceUnits
+    @JavascriptInterface fun getUiSpeedUnits(): Double = instrumentState.uiSpeedUnits
+    @JavascriptInterface fun getMapSpeedUnits(): Double = instrumentState.mapSpeedUnits
+    @JavascriptInterface fun getMapRegion(): Double = instrumentState.mapRegion
+    @JavascriptInterface fun getMapLimit(): Double = instrumentState.mapLimit
+    @JavascriptInterface fun getSoc(): Double = instrumentState.soc
+    @JavascriptInterface fun getAmbientTempC(): Double = instrumentState.ambientTempC
+    @JavascriptInterface fun getChargeTransferState(): Double = instrumentState.chargeTransferState
+    @JavascriptInterface fun getChargeType(): Double = instrumentState.chargeType
+    @JavascriptInterface fun getChargeMinutes(): Double = instrumentState.chargeMinutes
+    @JavascriptInterface fun getRatedRangeMiles(): Double = instrumentState.ratedRangeMiles
+    @JavascriptInterface fun getChargeVolts(): Double = instrumentState.chargeVolts
+    @JavascriptInterface fun getChargeAmps(): Double = instrumentState.chargeAmps
+    @JavascriptInterface fun getChargeInputKw(): Double = instrumentState.chargeInputKw
+    @JavascriptInterface fun getEvseAcCurrentLimit(): Double = instrumentState.evseAcCurrentLimit
+    @JavascriptInterface fun getChargePhases(): Double = instrumentState.chargePhases
+    @JavascriptInterface fun getBatteryInputKw(): Double = instrumentState.batteryInputKw
+    @JavascriptInterface fun getChargeMeterKwh(): Double = instrumentState.chargeMeterKwh
+    @JavascriptInterface fun getTelltaleBits(): Double = instrumentState.telltaleBits
     @JavascriptInterface fun isAlwaysOnBlindSpotMonitor(): Boolean = alwaysOnBlindSpotMonitor
     @JavascriptInterface fun getRenderQuality(): Int = renderQuality
     @JavascriptInterface fun getDarkModeBackgroundGray(): Int = darkModeBackgroundGray

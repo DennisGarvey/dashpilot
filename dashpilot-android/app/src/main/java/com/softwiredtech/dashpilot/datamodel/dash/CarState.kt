@@ -72,6 +72,34 @@ data class CarState(
     val ambientLightingAvailable: Boolean = false,
     val ambientLightingColor: Int = 0, // Packed RGB (0xRRGGBB).
     val ambientLightingBrightness: Float = 0f,
+    val displayInDarkMode: Int = -1,
+    val exteriorColor: Int = -1,
+    val enoughEnergyForConvenienceFeatures: Int = -1,
+    val autopilotState: Double = -1.0,
+    val autopilotHandsOnState: Double = -1.0,
+    val autopilotAborting: Double = -1.0,
+    val handsOnReason: Double = -1.0,
+    val fsdEnabled: Double = -1.0,
+    val drivingProfile: Double = -1.0,
+    val distanceUnits: Double = -1.0,
+    val uiSpeedUnits: Double = -1.0,
+    val mapSpeedUnits: Double = -1.0,
+    val mapRegion: Double = -1.0,
+    val mapLimit: Double = -1.0,
+    val soc: Double = -1.0,
+    val ambientTempC: Double = -1000.0,
+    val chargeTransferState: Double = -1.0,
+    val chargeType: Double = -1.0,
+    val chargeMinutes: Double = -1.0,
+    val ratedRangeMiles: Double = -1.0,
+    val chargeVolts: Double = -1.0,
+    val chargeAmps: Double = -1.0,
+    val chargeInputKw: Double = -1.0,
+    val evseAcCurrentLimit: Double = -1.0,
+    val chargePhases: Double = -1.0,
+    val batteryInputKw: Double = -1.0,
+    val chargeMeterKwh: Double = -1.0,
+    val telltaleBits: Double = 0.0,
 ) {
     fun toImperial(): CarState = copy(
         odometer = odometer * KM_TO_MILES,
@@ -83,7 +111,7 @@ data class CarState(
     )
 
     companion object {
-        const val FIELD_COUNT = 61
+        const val FIELD_COUNT = 64
         private const val KM_TO_MILES = 0.621371f
 
         private val MILES_COUNTRIES = setOf("US", "GB", "MM", "LR")

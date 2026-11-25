@@ -67,6 +67,7 @@ final class AppSchemeHandler: NSObject, WKURLSchemeHandler {
         case "css":         return "text/css"
         case "json":        return "application/json"
         case "png":         return "image/png"
+        case "webp":        return "image/webp"
         case "jpg", "jpeg": return "image/jpeg"
         case "svg":         return "image/svg+xml"
         case "wgsl":        return "text/plain"
@@ -107,7 +108,7 @@ struct WebDashView: UIViewRepresentable {
         Coordinator()
     }
 
-    private static let localApps: Set<String> = ["vanilla", "vanilla-v2", "retro", "ambient", "analog", "compose"]
+    private static let localApps: Set<String> = ["vanilla", "vanilla-v2", "retro", "ambient", "analog", "compose", "aperture"]
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
