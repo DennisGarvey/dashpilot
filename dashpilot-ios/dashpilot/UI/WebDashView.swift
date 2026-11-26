@@ -24,7 +24,7 @@ final class AppSchemeHandler: NSObject, WKURLSchemeHandler {
         ]
         let assetName = String(path.dropFirst("web-vanilla-v2/".count))
         let fileURL: URL
-        if bundleDir.lastPathComponent == "web-aperture", path.hasPrefix("web-vanilla-v2/"),
+        if bundleDir.lastPathComponent == "web-palladium", path.hasPrefix("web-vanilla-v2/"),
            sharedVehicleAssets.contains(assetName) {
             fileURL = bundleDir.deletingLastPathComponent()
                 .appendingPathComponent("web-vanilla-v2")
@@ -120,7 +120,7 @@ struct WebDashView: UIViewRepresentable {
         Coordinator()
     }
 
-    private static let localApps: Set<String> = ["vanilla", "vanilla-v2", "retro", "ambient", "analog", "compose", "aperture"]
+    private static let localApps: Set<String> = ["vanilla", "vanilla-v2", "retro", "ambient", "analog", "compose", "palladium"]
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
@@ -140,7 +140,7 @@ struct WebDashView: UIViewRepresentable {
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.scrollView.isScrollEnabled = false
-        if url == "aperture" {
+        if url == "palladium" {
             webView.scrollView.contentInsetAdjustmentBehavior = .never
         }
         webView.navigationDelegate = context.coordinator

@@ -13,7 +13,7 @@ DRAWABLES_DIR="$REPO_ROOT/dashpilot-android/app/src/main/res/drawable"
 RAW_DIR="$REPO_ROOT/dashpilot-android/app/src/main/res/raw"
 
 # Default folders to sync (override by passing arguments)
-DEFAULT_FOLDERS=(web-vanilla web-vanilla-v2 web-retro web-ambient web-analog web-compose web-aperture)
+DEFAULT_FOLDERS=(web-vanilla web-vanilla-v2 web-retro web-ambient web-analog web-compose web-palladium)
 RIVE_FOLDERS=(rive rive-felina rive-halo rive-monte-carlo rive-parabellum)
 PREVIEW_FOLDERS=("${DEFAULT_FOLDERS[@]}" "${RIVE_FOLDERS[@]}")
 

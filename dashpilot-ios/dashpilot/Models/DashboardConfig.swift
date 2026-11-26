@@ -31,11 +31,11 @@ let availableDashboards: [DashboardConfig] = [
         screenshotName: "preview_vanilla-v2"
     ),
     DashboardConfig(
-        id: "aperture",
+        id: "palladium",
         name: "Palladium",
-        url: "aperture",
+        url: "palladium",
         type: .web,
-        screenshotName: "preview_aperture"
+        screenshotName: "preview_palladium"
     ),
     DashboardConfig(
         id: "ambient",

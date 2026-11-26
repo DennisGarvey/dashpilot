@@ -38,11 +38,11 @@ val availableDashboards = buildList {
     )
     add(
         DashboardConfig(
-            id = "aperture",
-            nameRes = R.string.dashboard_name_aperture,
-            url = "${LOCAL_ASSET_BASE_URL}web-aperture/index.html",
+            id = "palladium",
+            nameRes = R.string.dashboard_name_palladium,
+            url = "${LOCAL_ASSET_BASE_URL}web-palladium/index.html",
             type = DashboardType.WEB,
-            screenshotRes = R.drawable.preview_aperture,
+            screenshotRes = R.drawable.preview_palladium,
         )
     )
     add(

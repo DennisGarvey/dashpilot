@@ -1,6 +1,6 @@
 {
   "$schema": "../manifest.schema.json",
   "manifestVersion": 1,
-  "id": "aperture",
+  "id": "palladium",
   "settings": ["useImperial", "darkMode", "showCarBattery"]
 }
