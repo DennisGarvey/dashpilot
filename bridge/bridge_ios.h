@@ -105,6 +105,7 @@ typedef struct {
     double batteryInputKw;
     double chargeMeterKwh;
     double telltaleBits;
+    double vehicleSpeedKmh;
 } BridgeCarState;
 
 // Context

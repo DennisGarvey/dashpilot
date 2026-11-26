@@ -100,6 +100,7 @@ data class CarState(
     val batteryInputKw: Double = -1.0,
     val chargeMeterKwh: Double = -1.0,
     val telltaleBits: Double = 0.0,
+    val vehicleSpeedKmh: Double = -1.0,
 ) {
     fun toImperial(): CarState = copy(
         odometer = odometer * KM_TO_MILES,
@@ -111,7 +112,7 @@ data class CarState(
     )
 
     companion object {
-        const val FIELD_COUNT = 64
+        const val FIELD_COUNT = 90
         private const val KM_TO_MILES = 0.621371f
 
         private val MILES_COUNTRIES = setOf("US", "GB", "MM", "LR")

@@ -25,7 +25,7 @@ header{border-bottom:1px solid var(--line);padding:0 2px 12px;margin-bottom:0}
 
 /* A continuous surface leaves the road view as the main visual. */
 .cluster{grid-template-columns:minmax(240px,.52fr) minmax(0,1.48fr);--cluster-background:linear-gradient(#f8f9fa 0 29%,#e6ebf0 64%,#d7dfe7);background:var(--cluster-background)}
-.night .cluster{--cluster-background:linear-gradient(#181c22 0 29%,#252d36 64%,#303945)}
+.night .cluster{--cluster-background:linear-gradient(#050608 0 29%,#0b0e13 64%,#151b23)}
 .vehicle,.night .vehicle{background:none;border-left:0;padding-left:4px}
 .vehicle-heading{justify-content:flex-end}.vehicle-heading #vehicleTitle{display:none}
 .readout{align-self:start;padding-top:22px}
@@ -35,13 +35,16 @@ header{border-bottom:1px solid var(--line);padding:0 2px 12px;margin-bottom:0}
 @media(max-width:700px){.cluster{grid-template-columns:1fr}.vehicle{padding-left:20px}.readout{padding-top:8px}}
 
 .gears .selected{color:inherit;font-weight:750}.gears .selected:not(.auto){color:#202329}.night .gears .selected:not(.auto){color:#f3f5f7}.gears .auto{color:var(--blue)}
+.cluster{--fsd-blue:#1c56d8}
+.night .cluster{--fsd-blue:#447bf5}
+.cluster:has(.fsd-route) .gears .auto{color:var(--fsd-blue)}
 .gear-row{flex-wrap:wrap;min-height:37px}
-.speed-row .assist{min-height:0;padding:0;border:0;color:var(--blue);text-align:center}
+.speed-row .assist{min-height:0;padding:0;border:0;color:inherit;text-align:center}
 .speed-row .assist>div{display:grid;justify-items:center}
 .speed-row .assist strong{font-size:calc(var(--speed-size) * .30);line-height:1}
-.speed-row .assist small{font-size:calc(var(--speed-size) * .16);line-height:1;color:inherit;margin-top:2px}
+.speed-row .assist small{font-size:calc(var(--speed-size) * .16);line-height:1;color:var(--blue);margin-top:2px}
 .sign.ring.three-digits strong{font-size:1.05rem;font-variant-numeric:tabular-nums}
-:root{--power-active:#323b48}
+:root{--power-active:#323b48;--power-regen:#00f000}
 .night{--power-active:#e8edf4}
 .power{left:0;top:50%;width:5px;height:clamp(175px,56%,280px);transform:translateY(-50%);border-radius:0;background:#66707a85}
 .night .power{background:#aab4c077}
@@ -52,9 +55,9 @@ header{border-bottom:1px solid var(--line);padding:0 2px 12px;margin-bottom:0}
 .night .power #driveLimit,.night .power #regenLimit{background:repeating-linear-gradient(to bottom,#d0d7e080 0 3px,transparent 3px 4.5px)}
 .power b{display:none}
 .car{width:148px;height:148px;transform:translateY(34px) rotateZ(var(--car-heading,0deg))}
-.car-render{position:absolute;width:100%;height:100%;object-fit:contain;inset:0}
+.car-render{position:absolute;width:100%;height:100%;inset:0}
 .parked-render,.parked .driving-render{display:none}
-.parked .parked-render{display:block}
+.parked .parked-render{display:block;padding:0;border:0;background:none}
 .parked .car{width:113px;height:208px}
 .car .panel{opacity:0}
 .car .panel:is(.open,.ajar,.fault,.unknown){opacity:1}
@@ -75,46 +78,46 @@ header{border-bottom:1px solid var(--line);padding:0 2px 12px;margin-bottom:0}
 .parked .car .port{left:9%;bottom:17%}
 
 .speed-row{--speed-size:clamp(3.6rem,8.5vw,7.4rem);display:grid;grid-template-columns:max-content minmax(0,1fr);grid-template-rows:var(--speed-size) auto auto;align-items:center;column-gap:calc(var(--speed-size) * .09)}
-.speed-row .speed{grid-area:1/1}
+.speed-row .speed{grid-area:1/1;position:relative;width:3ch;height:1em;padding:0;text-align:center}
 .speed-row .units{grid-area:2/1;text-align:center}
 .speed-row .secondary{grid-area:3/1;text-align:center}
 .speed-row .assist,.speed-row .fsd-profile{grid-area:1/2;justify-self:start}
 .instruments:has(.assist:not([hidden]),.fsd-profile:not([hidden])){z-index:1}
-.fsd-profile{align-self:center;color:var(--blue);min-width:max-content;margin-left:clamp(4px,1vw,12px)}
-.fsd-profile small,.fsd-profile strong{display:block}
-.fsd-profile small{font-size:calc(var(--speed-size) * .15);letter-spacing:.02em}
-.fsd-profile strong{font-size:calc(var(--speed-size) * .24)}
+.fsd-profile{align-self:center;min-width:max-content;color:var(--fsd-blue);margin-left:3px}
+.fsd-profile small,.fsd-profile strong{display:block;font-size:14px}
+.fsd-profile small{letter-spacing:.02em}
+.fsd-profile strong{color:var(--muted)}
 
 .speed-row .assist{flex-direction:column;align-self:center;justify-content:space-between;height:calc(var(--speed-size) * 1.2);gap:0;background:none;border-radius:0}
 .speed-row .assist:has(>div[hidden]){justify-content:center}
 
 .lamp.manufacturer{object-fit:contain;padding:0;width:30px;height:30px}
 .speed-row .assist img{width:calc(var(--speed-size) * .66);height:calc(var(--speed-size) * .66);filter:none}
-.lane-preview{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;mask-image:linear-gradient(#0004,black 9%);z-index:-1}
+.lane-preview{position:absolute;inset:0 auto auto 50%;translate:-50% 0;width:100%;height:100%;pointer-events:none;mask-image:linear-gradient(#0004,black 9%);z-index:-1}
 .lane-preview path{fill:none;stroke-linecap:round;vector-effect:non-scaling-stroke}
-.lane-shoulder{stroke:#7f8994;stroke-opacity:.7;stroke-width:2.6}
-.night .lane-shoulder{stroke:#8994a2}
-.lane-edge{stroke:#78828c;stroke-opacity:.45;stroke-width:2;filter:blur(.4px)}
-.autopilot-lane .lane-edge{stroke:#3979ec;stroke-opacity:1;stroke-width:3;filter:none}
+.lane-preview .lane-shoulder{fill:#7f8994;fill-opacity:.7}
+.night .lane-preview .lane-shoulder{fill:#8994a2}
+.lane-preview .lane-edge{fill:#78828c;fill-opacity:.45}
+.autopilot-lane .lane-preview .lane-edge{fill:#3979ec;fill-opacity:1}
 .lane-preview .lane-route{display:none;fill:url(#fsdRouteFill)}
-.fsd-route .lane-preview .lane-route{display:block}
+.fsd-route .lane-preview .lane-route{display:block;transition:opacity .16s ease-out}
+.vehicle-transitioning .fsd-route .lane-preview .lane-route{opacity:0;transition:none}
 .lane-preview .nav-route{display:none;fill:#3979ec}
 .nav-route-active .lane-preview .nav-route{display:block}
-.parked .lane-preview{display:none}
+.parked .lane-preview{opacity:0}
 .car{transform:translateY(34px)}
 
 .scene:not(.parked) .car{position:absolute;left:50%;top:67.5%;width:min(245px,40%);height:auto;aspect-ratio:1;scale:none;transform:translate(-50%,-50%)}
-.driving-render{background:var(--drive-paint,url("highland-turns.png")) no-repeat var(--view-frame,33.333% 50%) / 700% 300%}
 
 .sign.canada small{font-size:.46rem}.sign:not(.ring).three-digits strong{font-size:1.24rem}
 
 .takeover{grid-row:2;align-self:center;justify-self:center;display:grid;justify-items:center;gap:8px;width:100%;padding:12px;color:#b9192e;text-align:center}
 .takeover strong{font-size:clamp(1.1rem,2.5vw,1.6rem);font-weight:700}
 .takeover-symbol{width:29px;height:29px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round}
-.takeover-wheel{margin-top:8px;width:min(252px,85%);aspect-ratio:386/318;overflow:hidden;position:relative}.takeover-wheel img{display:block;position:absolute;width:191.71%;max-width:none;left:-45.85%;top:-20.75%}
+.takeover-wheel{margin-top:8px;width:min(252px,85%);aspect-ratio:386/318}.takeover-wheel img{display:block;width:100%;height:100%;object-fit:contain}
 .night .takeover{color:#ff777e}
 
-.road-prompt{position:absolute;z-index:1;top:23%;left:0;right:0;display:grid;justify-items:center;gap:5px;padding-inline:14px;text-align:center;font-size:clamp(.82rem,1.55vw,1.04rem);font-weight:650;color:#243142;pointer-events:none}
+.road-prompt{position:absolute;z-index:3;top:23%;left:0;right:0;display:grid;justify-items:center;gap:5px;padding-inline:14px;text-align:center;font-size:clamp(.82rem,1.55vw,1.04rem);font-weight:650;color:#243142;pointer-events:none}
 .road-prompt img{width:34px;height:34px;object-fit:contain}
 .night .road-prompt img{filter:brightness(2.6)}
 .night .road-prompt{color:#edf3fb}
@@ -124,16 +127,16 @@ header{border-bottom:1px solid var(--line);padding:0 2px 12px;margin-bottom:0}
 .road-prompt{left:50%;right:auto;transform:translateX(-50%);width:max-content;max-width:calc(100% - 28px);padding:8px 17px 10px;border-radius:19px;corner-shape:squircle;background:#f8faff26;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
 .night .road-prompt{background:#171e2b22}
 
-.parked-render{background:var(--park-paint,url("highland-park.png")) center / contain no-repeat}
-
-.cluster.charging{--charge-background:#f4f6f8;--charge-halo:#cfd8e2;--charge-fade:#e5ebf1;--charge-shadow:#43567050;background:var(--charge-background)}
-.night .cluster.charging{--charge-background:#080b11;--charge-halo:#1b2333;--charge-fade:#10151f;--charge-shadow:#090b12bb}
+.cluster.charging{--charge-background:#f4f6f8;--charge-halo:#cfd8e2;--charge-fade:#e5ebf1;background:var(--charge-background)}
+.night .cluster.charging{--charge-background:#040507;--charge-halo:#141a25;--charge-fade:#090c12}
 .cluster.charging .instruments,.cluster.charging .vehicle{display:none}
-.charging-view{display:grid;grid-template-columns:minmax(120px,.65fr) minmax(0,2.5fr) minmax(160px,.9fr);align-items:center;gap:clamp(12px,2vw,30px);min-height:395px;padding:24px clamp(16px,4vw,48px);background:radial-gradient(ellipse at 49% 54%,var(--charge-halo) 0,var(--charge-fade) 34%,transparent 67%)}
+.charging-view{display:grid;grid-template-columns:minmax(120px,.65fr) minmax(0,2.5fr) minmax(160px,.9fr);align-items:center;gap:clamp(12px,2vw,30px);min-height:395px;padding:14px clamp(16px,4vw,48px) 42px;background:radial-gradient(ellipse at 49% 49%,var(--charge-halo) 0,var(--charge-fade) 34%,transparent 67%)}
 .charging-eta{display:grid;gap:8px;font-size:.85rem}.charging-eta>span,.charging-eta #chargeBasis{color:var(--muted)}
+.charging-eta #chargeBasis:empty{display:none}
 .charging-eta strong{font-size:clamp(1.5rem,4vw,2.75rem);white-space:nowrap;letter-spacing:-.045em}
-.charging-scene{position:relative;min-width:0;min-height:145px;aspect-ratio:1.85}
-.charging-car{position:absolute;left:1%;bottom:0;width:98%;filter:drop-shadow(0 13px 10px var(--charge-shadow))}
+.charge-complete .charging-eta strong{font-size:clamp(1rem,2.5vw,1.65rem);white-space:normal}
+.charging-scene{display:grid;place-items:center;min-width:0}
+.charging-car{width:98%;aspect-ratio:550/310;max-height:min(310px,55dvh)}
 .charging-summary{display:grid;grid-template-columns:auto minmax(max-content,1fr);align-items:center;gap:7px 10px;margin-bottom:7px}
 .charging-summary strong{white-space:nowrap}
 .charging-summary #chargePower{justify-self:end}
@@ -149,26 +152,30 @@ header{border-bottom:1px solid var(--line);padding:0 2px 12px;margin-bottom:0}
 .cluster .instruments{grid-area:2/3;padding:8px 22px 8px 0;display:flex;flex-direction:column;justify-content:center}
 .cluster .vehicle{grid-area:2/2;padding:0;min-height:0;border:0;grid-template-rows:minmax(0,1fr) auto}
 .cluster .takeover{grid-row:1}
-.cluster .readout{padding:0}
+.cluster .readout{align-self:stretch;padding:0}
+.cluster .instruments:has(.fsd-profile:not([hidden])){padding-inline-end:10px}
 .cluster .badges{grid-area:2/2;align-self:start;justify-self:end;min-height:0;margin:19px 14px 0 0;z-index:1}
 .cluster.charging .badges{display:none}
 .cluster .speed-row .speed{font-size:var(--speed-size)}
 .cluster .vehicle-heading{display:none}
 .indicator-band{grid-area:1/1/2/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start;padding:8px clamp(12px,3vw,34px) 3px;z-index:2}
-.cluster .telltales{min-height:24px;align-items:center;gap:3px}
-.cluster .telltales .lamp{width:24px;height:24px;padding:1px;flex:0 0 24px}
+.cluster .telltales{min-height:clamp(34px,4vw,42px);align-items:center;gap:5px}
+.cluster .telltales .lamp{width:clamp(34px,4vw,42px);height:clamp(34px,4vw,42px);padding:1px;flex:0 0 clamp(34px,4vw,42px)}
 .cluster .telltales .lamp.manufacturer{padding:0}
-.turn-arrows{position:absolute;inset:0;z-index:2;pointer-events:none}
+.turn-arrows{grid-area:2/2;position:relative;z-index:2;pointer-events:none}
 .turn-arrow{position:absolute;top:26%;width:clamp(21px,3vw,34px);height:auto;fill:#3ee904;visibility:hidden}
 .turn-arrow.signal-active{visibility:visible}
 .turn-arrow.signal-muted{opacity:.55}
-.signals-flash{animation:signal-blink 1s steps(1,end) infinite}
+.signals-flash{animation:signal-blink 720ms steps(1,end) infinite}
 @keyframes signal-blink{0%,100%{opacity:1}50%{opacity:.55}}
 .turn-arrow-left{left:5%}.turn-arrow-right{right:5%}
 .cluster .telltales-right{justify-content:flex-end}
 .vehicle-status,.drive-status{display:flex;align-items:center;gap:8px;font-size:.89rem;white-space:nowrap}
-.vehicle-status{grid-area:3/1;padding-left:clamp(16px,3vw,38px)}
-.drive-status{grid-area:3/3;justify-content:flex-end;padding-right:clamp(16px,3vw,38px)}
+.dashboard-footer{grid-area:3/1/-1/-1;display:grid;grid-template-columns:max-content minmax(0,1fr) max-content;align-items:end;column-gap:clamp(8px,1.5vw,20px);padding-inline:clamp(12px,3vw,38px)}
+.vehicle-status{grid-area:1/1;align-items:baseline}
+.drive-status{grid-area:1/3;align-items:baseline}
+.drive-status .gears{align-items:baseline}
+.drive-status .gears span{line-height:inherit}
 .battery-status{display:flex;align-items:center;gap:8px;font-weight:550;font-variant-numeric:tabular-nums}
 .battery-icon{display:block;position:relative;width:27px;height:12px;padding:1px;border:1px solid #77838e;border-radius:3px;background:#73808b38}
 .battery-icon::after{content:"";position:absolute;top:3px;right:-3px;width:2px;height:4px;background:#77838e;border-radius:0 1px 1px 0}
@@ -183,14 +190,14 @@ header{border-bottom:1px solid var(--line);padding:0 2px 12px;margin-bottom:0}
 .battery-status:is(.battery-low,.battery-critical) .battery-icon i{background:var(--battery-warning)}
 #demoBatteryValue{min-width:4ch;font-variant-numeric:tabular-nums}
 .drive-status time{font-variant-numeric:tabular-nums}
-.cluster .power{grid-area:3/2;position:relative;inset:auto;justify-self:center;align-self:end;margin:0 0 3px;width:min(114%,490px);height:4px;transform:none;background:#737b8445}
+.cluster .power{grid-area:1/2;position:relative;inset:auto;justify-self:stretch;align-self:end;margin:0 0 3px;width:100%;height:4px;transform:none;overflow:visible;background:#737b8445}
 .cluster .power i{top:0;bottom:auto;height:100%;width:auto}
+.cluster .power #powerFill{top:auto;bottom:0;height:6px}
 .cluster .power #regenLimit{left:0;right:auto;background:repeating-linear-gradient(90deg,#7f8791 0 2px,#5c646f20 2px 6px)}
 .cluster .power #driveLimit{left:auto;right:0;background:repeating-linear-gradient(90deg,#7f8791 0 2px,#5c646f20 2px 6px)}
 .cluster.park-view .instruments{visibility:hidden}
 .cluster.park-view .vehicle{grid-column:1/-1}
-.park-view .parked .car{width:min(390px,67%);height:auto;aspect-ratio:550/310;transform:none;scale:none}
-.park-view .parked-render{background:none;object-fit:contain}
+.park-view .parked .car{width:min(550px,85%);height:auto;max-height:100%;aspect-ratio:550/310;transform:none;scale:none}
 .park-view .parked .car .hood{left:30%;top:57%}
 .park-view .parked .car .hatch{left:84%;bottom:49%}
 .park-view .parked .car .fl{left:57%;top:55%}
@@ -198,17 +205,14 @@ header{border-bottom:1px solid var(--line);padding:0 2px 12px;margin-bottom:0}
 .park-view .parked .car .rl{left:72%;top:46%}
 .park-view .parked .car .rr{right:33%;top:25%}
 .park-view .parked .car .port{left:88%;bottom:52%}
-.cluster.charging{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto 28px}
+.cluster.charging{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) 28px}
 .charging-view{grid-area:2/1/3/-1}
-.cluster.charging .vehicle-status{grid-area:3/1}
-.cluster.charging .drive-status{grid-area:3/2}
 @media(max-width:700px){
   .cluster:not(.charging){grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto minmax(245px,1fr) 28px}
   .cluster:not(.charging) .instruments{grid-area:2/1/3/-1;padding:6px 16px 0}
   .cluster:not(.charging) .vehicle{grid-area:3/1/4/-1;padding:0}
   .cluster:not(.charging) .badges{grid-area:3/2;margin-top:8px}
-  .cluster:not(.charging) .drive-status{grid-area:4/2}.cluster:not(.charging) .vehicle-status{grid-area:4/1}
-  .cluster .power{grid-area:3/1/4/-1;width:60%;margin-bottom:0}
+  .cluster:not(.charging) .dashboard-footer{grid-area:4/1/-1/-1}
   .cluster.park-view .instruments{display:none}
   .cluster.park-view .vehicle{padding-top:8px}
 }
@@ -216,11 +220,84 @@ header{border-bottom:1px solid var(--line);padding:0 2px 12px;margin-bottom:0}
 .charging-ac .charging-summary{font-size:clamp(.8rem,1.5vw,.95rem)}
 .charging-ac .charging-stats dt{color:inherit}
 .phase-count{display:grid;place-items:center;width:1.3em;height:1.3em;border-radius:50%;background:var(--muted);color:var(--charge-background);font-size:.86em;font-weight:750}
-@media(min-width:701px){.charging-view.charging-ac{grid-template-columns:minmax(max-content,.8fr) minmax(0,2.5fr) minmax(202px,1fr);column-gap:clamp(22px,3vw,44px)}}
+@media(min-width:701px){
+  .charging-view{grid-template-columns:minmax(180px,19%) minmax(0,1fr) minmax(180px,19%);column-gap:clamp(10px,1.5vw,26px);padding-inline:clamp(16px,2.5vw,40px)}
+  .charging-eta{justify-self:start}
+}
 @media(max-width:700px){.charging-ac .charging-info{grid-column:1/-1}}
 
 .embedded main{max-width:none;padding:0}
 .embedded header{display:none}
-.embedded .cluster{min-height:100dvh}
+.embedded .charging-view{min-height:0}
 .embedded.waiting-for-feed header{display:block;position:absolute;z-index:2;top:8px;left:50%;translate:-50% 0}
 .embedded header .brand{display:none}
+
+.cluster.charging .turn-arrows,.cluster.park-view .turn-arrows{grid-area:2/1/3/-1}
+@media(max-width:700px){.cluster:not(.charging) .turn-arrows{grid-area:3/1/4/-1}}
+
+.speed-hold{position:absolute;display:block;left:50%;top:50%;width:1em;height:1em;object-fit:contain;transform:translate(-50%,-50%)}
+
+.vehicle-canvas{position:absolute;translate:-50% -50%;visibility:hidden;pointer-events:none}
+.vehicle-ready .vehicle-canvas{visibility:visible;filter:drop-shadow(0 14px 10px #1f354a80)}
+.vehicle-transitioning{--vehicle-motion:var(--vehicle-motion-duration) cubic-bezier(.3333,0,.6667,1)}
+.vehicle-transitioning .vehicle-canvas{transition:left var(--vehicle-motion),top var(--vehicle-motion),width var(--vehicle-motion),height var(--vehicle-motion)}
+.lane-preview{opacity:1;scale:1;transform-origin:50% 50%}
+.vehicle-transitioning .lane-preview{transition:opacity var(--vehicle-motion)}
+.vehicle-transitioning:not(.park-view) .lane-preview{animation:lane-zoom-in var(--vehicle-motion)}
+@keyframes lane-zoom-in{from{scale:.72}}
+.charging-scene{position:relative}
+.vehicle-picker{color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px}
+.vehicle-picker::backdrop{background:#10141b80}
+.vehicle-picker form,.vehicle-picker label{display:flex;align-items:center;gap:12px}
+
+.charging-stats:not(:has(> :not([hidden]))){display:none}
+
+/* Keep the lower instruments inside the WebView, including short landscape screens. */
+.embedded .cluster{
+  position:fixed;inset:0;min-height:0;
+  padding-top:env(safe-area-inset-top);
+  padding-left:env(safe-area-inset-left);
+  padding-right:env(safe-area-inset-right);
+  padding-bottom:max(10px,env(safe-area-inset-bottom));
+}
+.embedded .cluster:not(.charging){grid-template-rows:auto minmax(0,1fr) 32px}
+.embedded .cluster.charging{
+  grid-template-rows:auto minmax(0,1fr) 32px;
+  background:radial-gradient(ellipse at 49% 49%,var(--charge-halo) 0,var(--charge-fade) 34%,var(--charge-background) 67%);
+}
+.embedded .charging-view{background:none}
+.embedded .cluster .scene{min-height:0}
+.embedded .cluster .dashboard-footer{--footer-inset:max(10px,env(safe-area-inset-bottom))}
+.embedded .cluster .power{z-index:1;background:#737b8475;margin:0;translate:0 var(--footer-inset)}
+@media (orientation:landscape) and (min-width:701px){
+  .embedded .cluster .dashboard-footer{margin-bottom:calc(0px - var(--footer-inset))}
+  .embedded .cluster .power{translate:none}
+}
+.night.embedded .cluster .power{background:#9ba8b765}
+.cluster .vehicle{position:relative;grid-template-rows:minmax(0,1fr);overflow:visible}
+.cluster .closures{position:absolute;inset:auto 12px 18px;display:block;min-height:0;text-align:center;color:var(--muted);font-size:.8rem}
+.scene:not(.parked) .car{top:50%}
+.reversing .lane-preview .nav-route{display:none}
+@media(min-width:701px){
+  .charging-scene{align-self:stretch}
+  .charging-summary{grid-template-columns:max-content minmax(0,1fr);align-items:baseline;column-gap:6px}
+  .charging-summary #chargePower{grid-column:2;grid-row:1}
+  .charging-ac .charge-power-label{grid-column:1;grid-row:2;white-space:nowrap}
+  .charging-ac .charging-summary #chargePower{grid-row:2}
+  .charging-ac .charging-electrical{grid-column:2;grid-row:1;gap:5px;font-size:.76rem}
+}
+@media(max-width:700px){
+  .embedded .cluster:not(.charging){grid-template-rows:auto auto minmax(0,1fr) 32px}
+  .embedded .cluster.park-view:not(.charging){grid-template-rows:auto 0 minmax(0,1fr) 32px}
+}
+
+.embedded .dashboard-footer{position:relative;z-index:1}
+.embedded .dashboard-footer :is(.vehicle-status,.drive-status){padding-bottom:6px}
+.embedded .cluster:not(.park-view,.charging) .vehicle{grid-row-end:-1}
+
+.lamp.rear-fog{
+  background:#ffac35;
+  -webkit-mask:url("icons/frontFog.png") center / contain no-repeat;
+  mask:url("icons/frontFog.png") center / contain no-repeat;
+  transform:scaleX(-1);
+}

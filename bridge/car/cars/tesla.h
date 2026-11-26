@@ -65,10 +65,17 @@ private:
     char pending_[CarState::VIN_LENGTH] = {};
 };
 
+static inline double readVehicleSpeedKmh(const CANParsers& cp, int bus) {
+    uint64_t bits = 0;
+    if (!cp.getRaw(bus, "DI_speed", "DI_vehicleSpeed", &bits, 3)) return -1;
+    return std::abs(static_cast<double>(bits) - 500.0) * 0.08;
+}
+
 static inline void updatePartyBus(const CANParsers& cp, CarState& cs) {
     cs.egoSteeringAngle = cp.get(2, "SCCM_steeringAngleSensor", "SCCM_steeringAngle");
     cs.gear = cp.get(2, "DI_systemStatus", "DI_gear");
     cs.egoSpeed = cp.get(2, "DI_speed", "DI_uiSpeed");
+    cs.vehicleSpeedKmh = readVehicleSpeedKmh(cp, 2);
     cs.adasOn = cp.get(2, "DI_state", "DI_cruiseState") == 2.0 ? 1.0 : 0.0;
     cs.leftBlindSpot = cp.get(2, "DAS_status", "DAS_blindSpotRearLeft");
     cs.rightBlindSpot = cp.get(2, "DAS_status", "DAS_blindSpotRearRight");
@@ -130,8 +137,10 @@ static inline void updateInstrumentCluster(const CANParsers& cp, CarState& cs) {
 
     if (read(0, "UI_autopilotControl", "UI_enableFullSelfDriving", 6) ||
         read(1, "UI_autopilotControl", "UI_enableFullSelfDriving", 6)) cs.fsdEnabled = bits;
-    if (read(0, "UI_autopilotControl", "UI_autopilotDrivingProfile", 8) ||
-        read(1, "UI_autopilotControl", "UI_autopilotDrivingProfile", 8)) cs.drivingProfile = bits;
+    const auto profile = [&](int bus) {
+        return read(bus, "UI_autopilotControl", "UI_autopilotDrivingProfile", 8) && bits <= 4;
+    };
+    if (profile(1) || profile(0)) cs.drivingProfile = bits;
     const auto readSpeed = [&](int bus) {
         if (!read(bus, "DI_speed", "DI_uiSpeed", 5) || bits == 255) return false;
         const auto speed = bits;
@@ -142,6 +151,8 @@ static inline void updateInstrumentCluster(const CANParsers& cp, CarState& cs) {
     };
     cs.uiSpeedUnits = -1;
     if (!readSpeed(0)) readSpeed(1);
+    cs.vehicleSpeedKmh = readVehicleSpeedKmh(cp, 0);
+    if (cs.vehicleSpeedKmh < 0) cs.vehicleSpeedKmh = readVehicleSpeedKmh(cp, 1);
     if (!read(0, "DI_systemStatus", "DI_gear", 3) &&
         read(1, "DI_systemStatus", "DI_gear", 3)) cs.gear = bits;
     if (read(1, "UI_chassisControl", "UI_distanceUnits", 3) ||
@@ -158,7 +169,7 @@ static inline void updateInstrumentCluster(const CANParsers& cp, CarState& cs) {
         map(0, "UI_gpsVehicleSpeed");
     }
 
-    if (read(1, "BMS_socStatus", "BMS_socUI", 3)) cs.soc = bits <= 1000 ? bits * 0.1 : -1;
+    cs.soc = read(1, "UI_range", "UI_uSoe", 5) && bits <= 100 ? static_cast<double>(bits) : -1;
     if (read(1, "VCFRONT_sensors", "VCFRONT_tempAmbientFiltered", 6)) {
         cs.ambientTempC = bits > 0 && bits <= 240 ? bits * 0.5 - 40 : -1000;
     }
@@ -182,9 +193,10 @@ static inline void updateInstrumentCluster(const CANParsers& cp, CarState& cs) {
     if (read(1, "PCS_chgLineStatus", "PCS_chgLineCurrent", 3)) cs.chargeAmps = bits * 0.1;
     if (read(1, "PCS_chgLineStatus", "PCS_chgInputPower", 4)) cs.chargeInputKw = bits * 0.1;
     if (read(1, "BMS_status", "BMS_batteryInputPower", 4)) cs.batteryInputKw = bits == 65535 ? -1 : bits * 0.05;
-    if (read(1, "UI_powerEstimates", "UI_chargeTimeUntilTerminationPct", 4)) {
-        cs.chargeMinutes = bits <= 1440 ? static_cast<double>(bits) : -1;
-    }
+    const auto chargeEta = [&](int bus) {
+        return read(bus, "UI_powerEstimates", "UI_chargeTimeUntilTerminationPct", 4) && bits <= 1440;
+    };
+    cs.chargeMinutes = (chargeEta(1) || chargeEta(0)) ? static_cast<double>(bits) : -1;
     if (read(1, "UI_range", "UI_ratedRange", 2)) cs.ratedRangeMiles = bits;
 
     const auto lamp = [&](int bus, const char* message, const char* signal,
@@ -192,22 +204,29 @@ static inline void updateInstrumentCluster(const CANParsers& cp, CarState& cs) {
         return read(bus, message, signal, length) && bits == expected ? 1u << position : 0u;
     };
     unsigned telltales = 0;
-    if (read(1, "VCFRONT_lighting", "VCFRONT_lightingCoreState", 5)) {
+    if (read(1, "VCFRONT_lightingTalas", "VCFRONT_lightingCoreState", 8)) {
         if (bits == 1 || bits == 3) telltales |= 1u << 0;
         if (bits == 4) telltales |= 1u << 1;
     }
-    telltales |= lamp(1, "VCFRONT_lighting", "VCFRONT_latchedHighBeamsFunction", 5, 1, 2);
-    telltales |= lamp(1, "VCFRONT_lighting", "VCFRONT_highBeamControlState", 4, 3, 3);
-    telltales |= lamp(1, "VCFRONT_lighting", "VCFRONT_frontFogFunctionState", 5, 1, 4);
-    telltales |= lamp(1, "DI_chassisControlStatus", "DI_vehicleHoldTelltaleOn", 2, 1, 5);
-    telltales |= lamp(1, "DI_chassisControlStatus", "DI_vdcTelltaleOn", 1, 1, 6);
-    telltales |= lamp(1, "DI_chassisControlStatus", "DI_vdcTelltaleFlash", 1, 1, 7);
-    telltales |= lamp(1, "DI_chassisControlStatus", "DI_tcTelltaleOn", 1, 1, 8);
-    telltales |= lamp(1, "DI_chassisControlStatus", "DI_tcTelltaleFlash", 1, 1, 9);
+    telltales |= lamp(1, "VCFRONT_lightingTalas", "VCFRONT_latchedHighBeamsFunction", 8, 1, 2);
+    telltales |= lamp(1, "VCFRONT_lightingTalas", "VCFRONT_intHighBeamsFunctionStat", 8, 1, 2);
+    telltales |= lamp(1, "VCFRONT_lightingTalas", "VCFRONT_highBeamControlState", 8, 3, 3);
+    telltales |= lamp(1, "VCFRONT_lightStatus", "VCFRONT_fogLeftStatus", 8, 1, 4);
+    telltales |= lamp(1, "VCFRONT_lightStatus", "VCFRONT_fogRightStatus", 8, 1, 4);
+    telltales |= lamp(1, "DI_chassisControlStatus", "DI_vehicleHoldTelltaleOn", 3, 1, 5);
+    telltales |= lamp(1, "DI_chassisControlStatus", "DI_vdcTelltaleOn", 3, 1, 6);
+    telltales |= lamp(1, "DI_chassisControlStatus", "DI_vdcTelltaleFlash", 3, 1, 7);
+    telltales |= lamp(1, "DI_chassisControlStatus", "DI_tcTelltaleOn", 3, 1, 8);
+    telltales |= lamp(1, "DI_chassisControlStatus", "DI_tcTelltaleFlash", 3, 1, 9);
     telltales |= lamp(0, "RCM_status", "RCM_warningIndicatorState", 2, 1, 10);
     telltales |= lamp(0, "TPMS_StatusC", "TPMS_c_globalHardWarning", 1, 1, 11);
     telltales |= lamp(0, "TPMS_StatusC", "TPMS_systemMalfunction", 1, 1, 12);
     telltales |= lamp(0, "ESP_alertMatrix", "ESP_a102_absFault", 6, 1, 13);
+    if (read(1, "EPBR_status", "EPBR_telltale", 8)) {
+        if (bits == 1 || bits == 2) telltales |= 1u << 14;
+        if (bits == 4) telltales |= 1u << 15;
+    }
+    telltales |= lamp(1, "VCRIGHT_lightStatus", "VCRIGHT_rearFogLightStatus", 2, 1, 16);
     cs.telltaleBits = telltales;
 }
 
@@ -284,6 +303,37 @@ struct BlinkerHold {
     }
 };
 
+static inline void updateTurnSignals(const CANParsers& cp, CarState& cs,
+                                     BlinkerHold& leftHold, BlinkerHold& rightHold) {
+    // The front controller's simulated latching stalk selects the side.
+    // Use the requests for blink phase and preserve both arrows for hazards.
+    for (const auto* message : {"VCFRONT_lightingTalas", "VCFRONT_lighting", "VCFRONT_lightingLegacy"}) {
+        uint64_t left = 0, right = 0;
+        if (cp.getRaw(1, message, "VCFRONT_indicatorLeftRequest", &left, 8) &&
+            cp.getRaw(1, message, "VCFRONT_indicatorRightRequest", &right, 8)) {
+            uint64_t latch = 3, hazards = 0;
+            const bool hasLatch = cp.getRaw(1, message, "VCFRONT_turnIndicatorStalk", &latch, 8) ||
+                                  cp.getRaw(1, message, "VCFRONT_simLatchingStalk", &latch, 8);
+            const bool hazardActive = cp.getRaw(1, message, "VCFRONT_hazardLightRequest", &hazards, 8) &&
+                                      hazards > 0 && hazards <= 8;
+            if (hazardActive) {
+                cs.leftBlinker = left == 2 ? 2 : 1;
+                cs.rightBlinker = right == 2 ? 2 : 1;
+            } else if (hasLatch && latch <= 2) {
+                cs.leftBlinker = latch == 1 ? (left == 2 ? 2 : 1) : 0;
+                cs.rightBlinker = latch == 2 ? (right == 2 ? 2 : 1) : 0;
+            } else {
+                cs.leftBlinker = left <= 2 ? left : 0;
+                cs.rightBlinker = right <= 2 ? right : 0;
+            }
+            return;
+        }
+    }
+
+    cs.leftBlinker = leftHold.update(cp.get(1, "VCLEFT_lightStatus", "VCLEFT_turnSignalStatus"));
+    cs.rightBlinker = rightHold.update(cp.get(1, "VCRIGHT_lightStatus", "VCRIGHT_turnSignalStatus"));
+}
+
 class TeslaCommaPartyMapper : public CarStateMapper {
 public:
     void update(const CANParsers& cp, CarState& cs) override {
@@ -308,10 +358,7 @@ public:
         cs.trafficLightColor = cp.get(0, "DAS_road", "DAS_trafficLightColor");
         cs.stopLineDist = cp.get(0, "DAS_road", "DAS_stopLineDist");
 
-        cs.leftBlinker = leftBlinkerHold_.update(
-            cp.get(1, "VCLEFT_lightStatus", "VCLEFT_turnSignalStatus"));
-        cs.rightBlinker = rightBlinkerHold_.update(
-            cp.get(1, "VCRIGHT_lightStatus", "VCRIGHT_turnSignalStatus"));
+        updateTurnSignals(cp, cs, leftBlinkerHold_, rightBlinkerHold_);
 
 
         // VCFRONT_status is multiplexed: VCFRONT_anyDoorOpen lives on mux 0
@@ -385,10 +432,7 @@ public:
         cs.fusedSpeedLimit = cp.get(0, "DAS_status", "DAS_fusedSpeedLimit");
         // DAS_road is static on Juniper: no traffic light or stop line data.
 
-        cs.leftBlinker = leftBlinkerHold_.update(
-            cp.get(1, "VCLEFT_lightStatus", "VCLEFT_turnSignalStatus"));
-        cs.rightBlinker = rightBlinkerHold_.update(
-            cp.get(1, "VCRIGHT_lightStatus", "VCRIGHT_turnSignalStatus"));
+        updateTurnSignals(cp, cs, leftBlinkerHold_, rightBlinkerHold_);
 
         if (static_cast<int>(cp.get(1, "VCFRONT_status", "VCFRONT_statusIndex")) == 0) {
             cs.anyDoorOpen = cp.get(1, "VCFRONT_status", "VCFRONT_anyDoorOpen");

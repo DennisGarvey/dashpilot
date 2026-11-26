@@ -121,8 +121,9 @@ struct CarState {
     double batteryInputKw = -1;
     double chargeMeterKwh = -1;
     double telltaleBits = 0;
+    double vehicleSpeedKmh = -1;
     static constexpr size_t INSTRUMENT_OFFSET = DISPLAY_OFFSET + 3;
-    static constexpr size_t FIELD_COUNT = INSTRUMENT_OFFSET + 25;
+    static constexpr size_t FIELD_COUNT = INSTRUMENT_OFFSET + 26;
 
     void toArray(double* out) const {
         // Party bus
@@ -228,5 +229,6 @@ struct CarState {
         out[INSTRUMENT_OFFSET + 22] = batteryInputKw;
         out[INSTRUMENT_OFFSET + 23] = chargeMeterKwh;
         out[INSTRUMENT_OFFSET + 24] = telltaleBits;
+        out[INSTRUMENT_OFFSET + 25] = vehicleSpeedKmh;
     }
 };

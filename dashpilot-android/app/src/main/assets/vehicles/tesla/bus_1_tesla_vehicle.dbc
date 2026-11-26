@@ -6657,6 +6657,8 @@ BO_ 291 UI_alertMatrix1: 8 VEH
 
 BO_ 1021 UI_autopilotControl: 8 CH
  SG_ UI_autopilotControlIndex M : 0|3@1+ (1,0) [0|7] "" X
+ SG_ UI_enableFullSelfDriving m0 : 46|1@1+ (1,0) [0|1] "" X
+ SG_ UI_autopilotDrivingProfile m2 : 60|3@1+ (1,0) [0|7] "" X
  SG_ UI_apmv3Branch m1 : 40|3@1+ (1,0) [0|5] "" X
  SG_ UI_applyEceR79 m1 : 19|1@1+ (1,0) [0|1] "" X
  SG_ UI_blindspotDistance m0 : 15|3@1+ (1,0) [0|5] "" X
@@ -9991,6 +9993,31 @@ BA_ "GenMsgCycleTime" BO_ 793 1000;
 
 BA_ "GenMsgSendType" BO_ 505 0;
 BA_ "GenMsgCycleTime" BO_ 505 100;
+
+BO_ 1013 VCFRONT_lightingTalas: 8 VCFRONT
+ SG_ VCFRONT_turnIndicatorStalk : 40|2@1+ (1,0) [0|3] "" X
+ SG_ VCFRONT_hazardLightRequest : 4|4@1+ (1,0) [0|15] "" X
+ SG_ VCFRONT_indicatorLeftRequest : 0|2@1+ (1,0) [0|3] "" X
+ SG_ VCFRONT_indicatorRightRequest : 2|2@1+ (1,0) [0|3] "" X
+ SG_ VCFRONT_highBeamControlState : 28|2@1+ (1,0) [0|3] "" Vector__XXX
+ SG_ VCFRONT_lightingCoreState : 32|4@1+ (1,0) [0|14] "" Vector__XXX
+ SG_ VCFRONT_intHighBeamsFunctionStat : 36|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ VCFRONT_latchedHighBeamsFunction : 37|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ VCFRONT_frontFogFunctionState : 38|1@1+ (1,0) [0|1] "" Vector__XXX
+
+BO_ 1014 VCFRONT_lightStatus: 8 VCFRONT
+ SG_ VCFRONT_lowBeamLeftStatus : 0|2@1+ (1,0) [0|2] "" Vector__XXX
+ SG_ VCFRONT_lowBeamRightStatus : 2|2@1+ (1,0) [0|2] "" Vector__XXX
+ SG_ VCFRONT_highBeamLeftStatus : 4|2@1+ (1,0) [0|2] "" Vector__XXX
+ SG_ VCFRONT_highBeamRightStatus : 6|2@1+ (1,0) [0|2] "" Vector__XXX
+ SG_ VCFRONT_fogLeftStatus : 12|2@1+ (1,0) [0|2] "" Vector__XXX
+ SG_ VCFRONT_fogRightStatus : 14|2@1+ (1,0) [0|2] "" Vector__XXX
+ SG_ VCFRONT_parkLeftStatus : 26|2@1+ (1,0) [0|2] "" Vector__XXX
+ SG_ VCFRONT_parkRightStatus : 28|2@1+ (1,0) [0|2] "" Vector__XXX
+
+BO_ 827 UI_powerEstimates: 6 GTW
+ SG_ UI_chargeTimeUntilTerminationPct : 16|11@1+ (1,0) [0|2046] "min" Vector__XXX
+
 
 VAL_ 600 APB_watchdogState 0 "UNKNOWN" 1 "DEGRADED" 2 "CRITICAL" 3 "HEALTHY" 7 "SNA";
 

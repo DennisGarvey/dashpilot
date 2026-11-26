@@ -93,6 +93,7 @@ static void carStateToBridge(const CarState& cs, BridgeCarState* out) {
     out->batteryInputKw = cs.batteryInputKw;
     out->chargeMeterKwh = cs.chargeMeterKwh;
     out->telltaleBits = cs.telltaleBits;
+    out->vehicleSpeedKmh = cs.vehicleSpeedKmh;
 }
 
 static std::atomic<bool> receiveLoopRunning{false};

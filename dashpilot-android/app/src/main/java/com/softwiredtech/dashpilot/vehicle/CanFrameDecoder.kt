@@ -140,6 +140,7 @@ class CanFrameDecoder(
                 batteryInputKw = values.getOrNull(86) ?: -1.0,
                 chargeMeterKwh = values.getOrNull(87) ?: -1.0,
                 telltaleBits = values.getOrNull(88) ?: 0.0,
+                vehicleSpeedKmh = values.getOrNull(89) ?: -1.0,
             )
         }
 

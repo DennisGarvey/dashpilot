@@ -13,7 +13,7 @@ const panelNames = {
 const lamps = {
   left: ["←", "green"], right: ["→", "green"],
   parkingLights: ["Parking lights", "green"], lowBeam: ["LOW BEAM", "green"], highBeam: ["HIGH BEAM", "blue"], autoHighBeam: ["Adaptive headlights", "blue"],
-  fog: ["FOG", "green"], parkingBrake: ["P BRAKE", "red"], brake: ["Brake system", "red"], brakeBooster: ["Brake booster fault", "amber"],
+  fog: ["Front fog lights", "green"], rearFog: ["Rear fog lights", "amber"], parkingBrake: ["P BRAKE", "red"], brake: ["Brake system", "red"], brakeBooster: ["Brake booster fault", "amber"],
   parkingBrakeFault: ["Parking brake fault", "amber"],
   abs: ["ABS", "amber"], hold: ["Vehicle Hold", "neutral"], traction: ["TC", "amber"],
   stability: ["ESC", "amber"], tractionFault: ["TC FAULT", "amber"],
@@ -33,7 +33,7 @@ function tags(element, entries) {
 }
 
 function renderPower(p) {
-  $("power").hidden = !finite(p?.used) && !finite(p?.driveFraction) && !finite(p?.regenFraction);
+  $("power").hidden = !p;
   const regen = p?.used < 0;
   const available = regen ? p?.regenFraction : p?.driveFraction;
   const fill = finite(p?.used)
@@ -43,120 +43,248 @@ function renderPower(p) {
   $("driveLimit").style.width = (finite(p?.driveFraction) ? 50 * (1 - clamp(p.driveFraction)) : 0) + "%";
   Object.assign($("powerFill").style, {
     width: fill + "%", left: (regen ? 50 - fill : 50) + "%",
-    background: regen ? "var(--green)" : "var(--power-active)"
+    background: regen ? "var(--power-regen)" : "var(--power-active)"
   });
 }
 
-function renderLanePreview(angle, assist) {
-  // Approximate road-wheel angle and wheelbase for the simulated preview.
-  const steeringMagnitude = finite(angle) ? Math.abs(angle) : 0;
-  const previewMagnitude = steeringMagnitude <= 60 ? steeringMagnitude :
-    Math.min(180, 60 + (steeringMagnitude - 60) * 2.4);
-  const steeringWheelDegrees = previewMagnitude === 0 ? 0 : Math.sign(angle) * previewMagnitude;
-  const steeringRatio = 15;
-  const steeringLock = Math.abs(steeringWheelDegrees) / 180;
-  const wheelbase = 2.9;
-  const curvature = Math.tan(steeringWheelDegrees / steeringRatio * Math.PI / 180) / wheelbase;
+const roadCameraElevation = .85;
+const roadHistoryStep = .25;
+const roadHistorySamples = 144;
+let roadHistory = [];
+let roadHistoryRemainder = 0;
+let roadHistoryDirection;
 
-  function roadDistance(y) {
-    const depth = (410 - y) / 410;
-    // Add most of the bend near full lock and well ahead of the car.
-    const farPreview = 1 + .36 * steeringLock ** 2 * depth ** 2
-      + .85 * steeringLock ** 4 * depth ** 5;
-    return 7 * depth * farPreview / (1 - .65 * depth);
+function updateRoadHistory(direction, curvature, distance) {
+  if (roadHistoryDirection !== direction) {
+    roadHistory = [];
+    roadHistoryRemainder = 0;
+    roadHistoryDirection = direction;
+  }
+  roadHistoryRemainder += distance;
+  const samples = Math.floor(roadHistoryRemainder / roadHistoryStep);
+  if (samples === 0) return;
+  roadHistoryRemainder -= samples * roadHistoryStep;
+  roadHistory.unshift(...Array(Math.min(samples, roadHistorySamples)).fill(curvature));
+  roadHistory.length = Math.min(roadHistory.length, roadHistorySamples);
+}
+
+
+let ribbonMotion;
+function updateRibbonAcceleration(speed, gear) {
+  const now = performance.now();
+  if (!ribbonMotion || ribbonMotion.gear !== gear || now - ribbonMotion.time > 750 || speed === 0) {
+    ribbonMotion = { speed, gear, time: now, acceleration: 0 };
+    return 0;
+  }
+  const elapsed = (now - ribbonMotion.time) / 1000;
+  if (elapsed >= .08) {
+    const acceleration = Math.max(-8, Math.min(4, (speed - ribbonMotion.speed) / elapsed));
+    const blend = 1 - Math.exp(-elapsed / .35);
+    ribbonMotion = { speed, gear, time: now, acceleration: ribbonMotion.acceleration + blend * (acceleration - ribbonMotion.acceleration) };
+  }
+  return ribbonMotion.acceleration;
+}
+
+function ribbonLookahead(speed, acceleration) {
+  const horizon = acceleration < 0 ? Math.min(1.8, speed / -acceleration) : 1.8;
+  return speed * horizon + .5 * acceleration * horizon ** 2;
+}
+
+function renderLanePreview(angle, assist, reversing, speedKmh, acceleration = 0) {
+  const steering = finite(angle) ? angle : 0;
+  const direction = reversing ? -1 : 1;
+
+  // The GPS fit uses fractional vehicle speed. Low-speed yaw measurements
+  // add curvature at large steering angles, fading out from 8 to 18 km/h.
+  const fitSpeed = Math.max(6.7, Math.min(65.9, speedKmh));
+  const fitSteering = Math.max(-450, Math.min(450, finite(angle) ? steering : 1.78));
+  const centeredSteering = fitSteering - 1.78;
+  const steeringFraction = clamp(Math.abs(centeredSteering) / 380);
+  const lowSpeedGain = 1 + .20 * steeringFraction ** 2 * clamp((18 - speedKmh) / 10);
+  const curvature = direction * lowSpeedGain * .000497 * centeredSteering / (1 + .0844 * (fitSpeed / 50) ** 2);
+  const tightTurn = clamp((Math.abs(steering) - 240) / 210);
+  // Let the reverse curve exit toward the footer, even at full lock.
+  const maxSweep = (reversing ? 60 : 90 + 70 * tightTurn) * Math.PI / 180;
+  const previewDistance = 32;
+  const curveEnd = maxSweep / Math.abs(curvature);
+
+  // Build the road in metres on a single plane. The viewing camera is
+  // above and behind the car, so only camera depth controls perspective.
+  const scene = $("scene");
+  const sceneWidth = scene.clientWidth || 600;
+  const sceneHeight = scene.clientHeight || 400;
+  const aspect = (sceneWidth / 600) / (sceneHeight / 400);
+  const nearScale = 36;
+  const groundScale = nearScale * aspect * Math.sin(roadCameraElevation);
+  const depthGain = .085;
+  const viewport = $("cluster").getBoundingClientRect();
+  const sceneBounds = scene.getBoundingClientRect();
+  const sceneTop = sceneBounds.top;
+  const centerY = wideVehicleLayout.matches
+    ? (viewport.top + viewport.height / 2 - sceneTop) * 400 / sceneHeight
+    : 200;
+  const powerBar = $("power").getBoundingClientRect();
+  const roadHeight = scene.clientHeight && powerBar.height
+    ? Math.max(sceneHeight, powerBar.top - sceneTop)
+    : sceneHeight;
+  const clipY = roadHeight * 400 / sceneHeight;
+  const preview = $("lanePreview");
+  // Curved shoulders can swing beyond the center column in either gear.
+  // Expand the clip without changing the ground-plane projection.
+  const extendSides = scene.clientWidth && viewport.width > sceneWidth;
+  const roadWidth = extendSides ? viewport.width : sceneWidth;
+  const leftInset = (sceneWidth - roadWidth) / 2;
+  preview.setAttribute("viewBox", `${leftInset * 600 / sceneWidth} 0 ${roadWidth * 600 / sceneWidth} ${clipY}`);
+  preview.style.width = `${roadWidth}px`;
+  preview.style.height = `${roadHeight}px`;
+  const nearSpace = clipY - centerY;
+  const nearLimit = nearSpace / (groundScale + nearSpace * depthGain);
+  const defaultLaneStart = reversing && curvature ? -(nearLimit + 4) / Math.cos(maxSweep) : -nearLimit;
+  const laneEnd = previewDistance;
+
+  // Integrate recently traveled ground-plane segments backward from the car.
+  // Reproject them relative to the current heading as the car advances.
+  let past = [];
+  // Keep the displayed trail moving away from the car even if older
+  // samples would wrap around into the forward-looking part of the view.
+  const historyHeadingLimit = 70 * Math.PI / 180;
+  const displayHeading = heading => historyHeadingLimit * Math.tanh(heading / historyHeadingLimit);
+  function projectHistory() {
+    let rawHeading = -roadHistoryRemainder * curvature;
+    let heading = displayHeading(rawHeading);
+    let x = -roadHistoryRemainder * Math.sin(heading / 2);
+    let z = -roadHistoryRemainder * Math.cos(heading / 2);
+    past = [{ x, z, heading }];
+    for (const curvature of roadHistory) {
+      rawHeading -= roadHistoryStep * curvature;
+      const nextHeading = displayHeading(rawHeading);
+      const middle = (heading + nextHeading) / 2;
+      x -= roadHistoryStep * Math.sin(middle);
+      z -= roadHistoryStep * Math.cos(middle);
+      heading = nextHeading;
+      past.push({ x, z, heading });
+    }
   }
 
-  function project(y, offset = 0) {
-    const depth = (410 - y) / 410;
-    const scale = 1 - .85 * depth;
-    // A convex screen-space curve keeps the horizon from curling back at full lock.
-    const bend = curvature * (1470 * depth ** 2 + (950 + 900 * steeringLock ** 2) * depth ** 4);
-    return 300 + offset * scale + bend;
+  function pastPoint(distance) {
+    if (distance < roadHistoryRemainder) {
+      const heading = displayHeading(-distance * curvature);
+      return { x: -distance * Math.sin(heading / 2), z: -distance * Math.cos(heading / 2), heading };
+    }
+    const index = (distance - roadHistoryRemainder) / roadHistoryStep;
+    const i = Math.min(Math.floor(index), past.length - 1);
+    const point = past[i];
+    const next = past[i + 1];
+    if (!next) {
+      const remaining = distance - roadHistoryRemainder - i * roadHistoryStep;
+      return { x: point.x - remaining * Math.sin(point.heading),
+        z: point.z - remaining * Math.cos(point.heading), heading: point.heading };
+    }
+    const t = index - i;
+    return { x: point.x + (next.x - point.x) * t, z: point.z + (next.z - point.z) * t,
+      heading: point.heading + (next.heading - point.heading) * t };
   }
 
-  const carY = 270;
-  const laneShift = project(carY) - 300;
+  function projectedRoadPoint(distance, offset) {
+    const travel = Math.max(0, direction * distance);
+    const curveDistance = Math.min(travel, curveEnd);
+    const heading = curveDistance * curvature;
+    const exitDistance = Math.max(0, travel - curveEnd);
+    const lateral = heading ? (1 - Math.cos(heading)) / curvature + exitDistance * Math.sin(heading) : 0;
+    const forward = heading ? direction * (Math.sin(heading) / curvature + exitDistance * Math.cos(heading)) : distance;
+    const traveled = direction * distance < 0 && (past.length > 1 || roadHistoryRemainder > 0)
+      ? pastPoint(Math.abs(distance)) : null;
+    const tangent = traveled?.heading ?? heading;
+    const x = direction * (traveled?.x ?? lateral) + offset * Math.cos(tangent);
+    const z = (traveled ? direction * traveled.z : forward) - offset * Math.sin(tangent);
+    const perspective = 1 / Math.max(.2, 1 + z * depthGain);
+    return [300 + x * nearScale * perspective, centerY - z * groundScale * perspective];
+  }
+
+  function roadPoint(distance, offset) {
+    return projectedRoadPoint(distance, offset).map(value => value.toFixed(2)).join(" ");
+  }
 
   function lanePoints(offset, start, end) {
-    return Array.from({ length: 25 }, (_, i) => {
-      const y = start + (end - start) * i / 24;
-      return (project(y, offset) - laneShift).toFixed(2) + " " + y.toFixed(2);
-    });
+    const steps = Math.max(2, Math.ceil(Math.abs(end - start) * 4));
+    return Array.from({ length: steps + 1 }, (_, i) => roadPoint(start + (end - start) * i / steps, offset));
   }
 
-  const scene = $("scene");
+  function strip(offset, halfWidth, start, end) {
+    const left = lanePoints(offset - halfWidth, start, end);
+    const right = lanePoints(offset + halfWidth, start, end);
+    return "M" + [...left, ...right.reverse()].join(" L") + " Z";
+  }
 
-  // Measure the projected centerline at the car, accounting for the stretched SVG viewBox.
-  const aspect = scene.clientWidth && scene.clientHeight
-    ? (scene.clientWidth / 600) / (scene.clientHeight / 400) : 1;
-  const screenSlope = (project(carY - 1) - project(carY + 1)) * aspect / 2;
-  // The atlas views the car from an elevation whose sine is about 0.605.
-  const atlasHeading = Math.atan(screenSlope * .605) * 180 / Math.PI;
-  const frame = 9 - Math.max(-9, Math.min(9, atlasHeading / 2));
-  const firstFrame = Math.floor(frame);
-  const position = index => ((index % 7) / 6 * 100) + "% " + (Math.floor(index / 7) * 50) + "%";
-  for (const [id, index] of [["drivingCar", firstFrame], ["drivingCarBlend", Math.ceil(frame)]]) {
-    $(id).style.setProperty("--view-frame", position(index));
-  }
-  $("drivingCarBlend").style.opacity = frame - firstFrame;
-  const laneEnd = 0;
-  for (const [id, offset] of [["laneShoulderLeft", -215], ["laneShoulderRight", 215]]) {
-    $(id).setAttribute("d", "M" + lanePoints(offset, 410, laneEnd).join(" L"));
-  }
-  if (assist === "ap") {
-    drawLaneDashes = null;
-    $("laneLeft").setAttribute("d", "M" + lanePoints(-93, 410, laneEnd).join(" L"));
-    $("laneRight").setAttribute("d", "M" + lanePoints(93, 410, laneEnd).join(" L"));
-  } else {
-    const distances = Array.from({ length: 83 }, (_, i) => roadDistance(410 - i * 5));
-    const farDistance = distances.at(-1);
-    function projectedY(distance) {
-      let lo = 0, hi = distances.length - 1;
-      while (hi - lo > 1) {
-        const mid = (lo + hi) >> 1;
-        if (distances[mid] <= distance) lo = mid;
-        else hi = mid;
+  drawLaneDashes = (phase, traveled = 0) => {
+    updateRoadHistory(direction, curvature, traveled);
+    projectHistory();
+    let laneStart = defaultLaneStart;
+    if (!reversing && roadHistory.length) {
+      const clipLeft = leftInset * 600 / sceneWidth;
+      const clipRight = 600 - clipLeft;
+      const shoulderOutside = offset => {
+        const [x, y] = projectedRoadPoint(laneStart, offset);
+        return y >= clipY || x <= clipLeft || x >= clipRight;
+      };
+      const historyLimit = -(roadHistorySamples * roadHistoryStep);
+      while (laneStart > historyLimit && (!shoulderOutside(-3.855) || !shoulderOutside(3.855))) {
+        laneStart -= .5;
       }
-      const fraction = (distance - distances[lo]) / (distances[hi] - distances[lo]);
-      return 410 - (lo + fraction) * 5;
     }
-    drawLaneDashes = phase => {
-      const left = [], right = [];
-      for (let start = -phase; start < farDistance; start += laneDashPeriod) {
-        const near = Math.max(0, start);
-        const far = Math.min(farDistance, start + laneDashLength);
-        if (far <= near) continue;
-        for (let i = 0; i <= 4; i++) {
-          const distance = near + (far - near) * i / 4;
-          const y = projectedY(distance);
-          const command = i === 0 ? "M" : "L";
-          left.push(command + (project(y, -93) - laneShift).toFixed(2) + " " + y.toFixed(2));
-          right.push(command + (project(y, 93) - laneShift).toFixed(2) + " " + y.toFixed(2));
-        }
-      }
-      $("laneLeft").setAttribute("d", left.join(" "));
-      $("laneRight").setAttribute("d", right.join(" "));
-    };
-    drawLaneDashes(laneDashOffset);
+    for (const [id, offset] of [["laneShoulderLeft", -3.8], ["laneShoulderRight", 3.8]]) {
+      $(id).setAttribute("d", strip(offset, .055, laneStart, laneEnd));
+    }
+    if (assist === "ap") {
+      $("laneLeft").setAttribute("d", strip(-1.65, .065, laneStart, laneEnd));
+      $("laneRight").setAttribute("d", strip(1.65, .065, laneStart, laneEnd));
+      return;
+    }
+    const left = [], right = [];
+    // Phase is signed by travel in the animation, so a gear change alone preserves it.
+    const anchor = -nearLimit - phase;
+    const firstDash = anchor + Math.floor((laneStart - anchor) / laneDashPeriod) * laneDashPeriod;
+    for (let start = firstDash; start < laneEnd; start += laneDashPeriod) {
+      const near = Math.max(laneStart, start);
+      const far = Math.min(laneEnd, start + laneDashLength);
+      if (far <= near) continue;
+      left.push(strip(-1.65, .042, near, far));
+      right.push(strip(1.65, .042, near, far));
+    }
+    $("laneLeft").setAttribute("d", left.join(" "));
+    $("laneRight").setAttribute("d", right.join(" "));
+  };
+  drawLaneDashes(laneDashOffset);
+
+  if (assist !== "fsd" && (assist !== "nav" || reversing)) return;
+  const route = $(assist === "fsd" ? "laneRoute" : "navRoute");
+  if (assist === "fsd" && speedKmh === 0) {
+    route.removeAttribute("d");
+    return;
   }
-  // The front bumper sits about a quarter of a tile above the sprite center.
-  const sceneHeight = scene.clientHeight || 400;
   const carHeight = $("drivingCar").clientHeight || 148;
-  const bumperY = Math.max(72, carY - carHeight * .255 * 400 / sceneHeight);
-  const sceneWidth = scene.clientWidth || 600;
-  const ribbonEnd = bumperY + carHeight * .12 * 400 / sceneHeight;
-  const endScale = 1 - .85 * (410 - ribbonEnd) / 410;
-  if (assist === "nav") {
-    const navHalfWidth = 4 * 600 / (sceneWidth * endScale);
-    const left = lanePoints(-navHalfWidth, ribbonEnd, laneEnd);
-    const right = lanePoints(navHalfWidth, laneEnd, ribbonEnd);
-    $("navRoute").setAttribute("d", "M" + [...left, ...right].join(" L") + " Z");
+  const bumperPixels = carHeight * .135 * 400 / sceneHeight;
+  const ribbonStart = Math.min(2, bumperPixels / Math.max(1, groundScale - direction * depthGain * bumperPixels));
+  const routeDistance = reversing ? nearLimit : laneEnd;
+  const routeTip = assist === "fsd"
+    ? Math.min(routeDistance, ribbonStart + ribbonLookahead(speedKmh / 3.6, acceleration))
+    : routeDistance;
+  const halfWidth = assist === "nav" ? .14 : Math.min(.95, carHeight * .13 * 600 / (sceneWidth * nearScale));
+  if (assist === "fsd") {
+    const fadeStart = routeTip - (routeTip - ribbonStart) * .18;
+    const [fadeX, fadeY] = projectedRoadPoint(direction * fadeStart, 0);
+    const [leftX, leftY] = projectedRoadPoint(direction * routeTip, -halfWidth);
+    const [rightX, rightY] = projectedRoadPoint(direction * routeTip, halfWidth);
+    const x2 = (leftX + rightX) / 2, y2 = (leftY + rightY) / 2;
+    const capX = rightX - leftX, capY = rightY - leftY;
+    const capLength = Math.hypot(capX, capY);
+    const normalX = -capY / capLength, normalY = capX / capLength;
+    const fadeLength = (x2 - fadeX) * normalX + (y2 - fadeY) * normalY;
+    const x1 = x2 - fadeLength * normalX, y1 = y2 - fadeLength * normalY;
+    const gradient = $("fsdRouteFill");
+    for (const [key, value] of Object.entries({ x1, y1, x2, y2 })) gradient.setAttribute(key, value);
   }
-  if (assist !== "fsd") return;
-  const ribbonHalfWidth = Math.min(51, carHeight * .30 * 300 / (sceneWidth * endScale));
-  const routeLeft = lanePoints(-ribbonHalfWidth, ribbonEnd, laneEnd);
-  const routeRight = lanePoints(ribbonHalfWidth, laneEnd, ribbonEnd);
-  $("laneRoute").setAttribute("d", "M" + [...routeLeft, ...routeRight].join(" L") + " Z");
+  route.setAttribute("d", strip(0, halfWidth, direction * ribbonStart, direction * routeTip));
 }
 
 const laneDashLength = 3;
@@ -170,15 +298,16 @@ let lastLaneTick;
 function animateLaneDashes(time) {
   const elapsed = lastLaneTick === undefined ? 0 : Math.min(time - lastLaneTick, 50) / 1000;
   lastLaneTick = time;
-  laneDashOffset = (laneDashOffset + laneMotionSpeed * elapsed) % laneDashPeriod;
-  drawLaneDashes?.(laneDashOffset);
+  const displacement = laneMotionSpeed * elapsed;
+  laneDashOffset = (laneDashOffset + displacement) % laneDashPeriod;
+  drawLaneDashes?.(laneDashOffset, Math.abs(displacement));
   laneAnimationFrame = requestAnimationFrame(animateLaneDashes);
 }
 
 function updateLaneMotion(speed) {
   laneMotionSpeed = speed;
   if (typeof requestAnimationFrame !== "function") return;
-  if (speed > 0 && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+  if (speed !== 0 && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
     if (laneAnimationFrame === null) laneAnimationFrame = requestAnimationFrame(animateLaneDashes);
   } else if (laneAnimationFrame !== null) {
     cancelAnimationFrame(laneAnimationFrame);
@@ -236,35 +365,176 @@ function driverWarning(raw, assist) {
   return undefined;
 }
 
-const exteriorPaintCodes = new Set([0, 1, 2, 3, 5, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 20]);
-
 const lightingAndSystems = new Set(["parkingLights", "lowBeam", "highBeam", "autoHighBeam",
-  "fog", "tpms", "tpmsFault", "coldBattery", "limitedRegen", "airbag"]);
+  "fog", "rearFog", "tpms", "tpmsFault", "coldBattery", "limitedRegen", "airbag"]);
 const leftLamps = Object.fromEntries(Object.entries(lamps).filter(([key]) => lightingAndSystems.has(key)));
 const rightLamps = Object.fromEntries(Object.entries(lamps).filter(([key]) =>
-  !lightingAndSystems.has(key) && key !== "left" && key !== "right"));
+  !lightingAndSystems.has(key) && key !== "left" && key !== "right" && key !== "hold"));
 const clockFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
+
+const paintColors = {
+  0: "#a81a26", 1: "#191b20", 2: "#bfc4cb", 3: "#575d64", 5: "#173669",
+  6: "#e4e4e0", 7: "#65182e", 8: "#182c43", 9: "#c4c9ce", 10: "#ba1727",
+  11: "#42464b", 13: "#a0bad1", 14: "#8ba7bc", 15: "#22262c", 16: "#b2ab9e",
+  17: "#364f64", 20: "#5b819e",
+};
+const vehiclePicker = $("vehiclePicker");
+const vehicleModel = $("vehicleModel");
+try {
+  const saved = window.NativeCarState?.getAppData?.() ?? window.__DASHPILOT_APP_DATA__ ??
+    localStorage.getItem("palladium-vehicle");
+  const model = (typeof saved === "string" ? JSON.parse(saved) : saved)?.model;
+  if ([...vehicleModel.options].some(option => option.value === model)) vehicleModel.value = model;
+} catch {}
+
+let vehicleState;
+let vehicleAnchor;
+let vehicleTransitionDuration = 950;
+let vehicleTransitionTimer;
+let vehicleTransitionStart;
+const vehicleCluster = $("cluster");
+const wideVehicleLayout = matchMedia("(min-width:701px)");
+const reducedVehicleMotion = matchMedia("(prefers-reduced-motion: reduce)");
+const carCanvas = document.createElement("canvas");
+carCanvas.className = "vehicle-canvas";
+carCanvas.setAttribute("aria-hidden", "true");
+carCanvas.addEventListener("webglcontextlost", () => vehicleCluster.classList.remove("vehicle-ready"));
+let vehicleScene;
+try {
+  vehicleScene = window.createDashPilotCarScene?.(carCanvas, {
+    carOnly: true,
+    assetRoot: "../web-vanilla-v2/",
+    onReady: () => vehicleCluster.classList.add("vehicle-ready"),
+  });
+} catch {}
+
+function positionVehicle() {
+  if (!vehicleAnchor) return;
+  const bounds = vehicleAnchor.getBoundingClientRect();
+  const viewport = vehicleCluster.getBoundingClientRect();
+  const charging = vehicleCluster.classList.contains("charging");
+  const centered = !charging && (wideVehicleLayout.matches || vehicleCluster.classList.contains("park-view"));
+  const x = centered ? viewport.width / 2 : bounds.left + bounds.width / 2 - viewport.left;
+  const y = centered ? viewport.height / 2 : bounds.top + bounds.height / 2 - viewport.top;
+  carCanvas.style.left = `${x}px`;
+  carCanvas.style.top = `${y}px`;
+  carCanvas.style.width = `${bounds.width}px`;
+  carCanvas.style.height = `${bounds.height}px`;
+}
+
+const vehicleLayoutObserver = new ResizeObserver(positionVehicle);
+if (vehicleScene) {
+  vehicleCluster.append(carCanvas);
+  vehicleLayoutObserver.observe(vehicleCluster);
+}
+
+function renderVehicle(s, park, charging, takeover) {
+  if (!vehicleScene) return;
+  const anchor = $(charging ? "chargingCar" : park ? "parkedCar" : "drivingCar").parentElement;
+  const layoutChanged = vehicleAnchor !== anchor || vehicleState?.parked !== (park || charging);
+  if (layoutChanged) {
+    const leavingPark = vehicleState?.parked && !vehicleState.charging && [2, 4].includes(s.gear);
+    vehicleTransitionDuration = leavingPark ? 600 : 950;
+    vehicleCluster.style.setProperty("--vehicle-motion-duration", `${vehicleTransitionDuration}ms`);
+    const animate = !!vehicleState && !charging && !vehicleState.charging &&
+      vehicleCluster.classList.contains("vehicle-ready") && !reducedVehicleMotion.matches;
+    clearTimeout(vehicleTransitionTimer);
+    vehicleTransitionStart = animate ? performance.now() : undefined;
+    vehicleCluster.classList.toggle("vehicle-transitioning", animate);
+    if (animate) {
+      vehicleTransitionTimer = setTimeout(() => {
+        vehicleTransitionStart = undefined;
+        // CSS starts on the next layout frame. Let it finish before clearing
+        // its transition rules, including after a delayed WebView frame.
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          if (vehicleTransitionStart === undefined) vehicleCluster.classList.remove("vehicle-transitioning");
+        }));
+      }, vehicleTransitionDuration);
+    }
+    if (vehicleAnchor !== anchor) {
+      if (vehicleAnchor) vehicleLayoutObserver.unobserve(vehicleAnchor);
+      vehicleAnchor = anchor;
+      vehicleLayoutObserver.observe(anchor);
+    }
+  }
+  carCanvas.hidden = takeover;
+  positionVehicle();
+  vehicleState = {
+    parked: park || charging, charging, driveElevation: roadCameraElevation,
+    transitionStart: vehicleTransitionStart, transitionDuration: vehicleTransitionDuration,
+    paint: paintColors[s.exteriorColor] ?? paintColors[6],
+    model: vehicleModel.value, egoSteeringAngle: s.angle,
+    egoSpeed: park || charging ? 0 : s.vehicleSpeedKmh, isImperial: false,
+    darkMode: s.darkMode,
+  };
+  vehicleScene.update(vehicleState);
+}
+
+function showVehiclePicker() {
+  if (vehiclePicker.open) return;
+  if (window.NativeCarState?.setEditing) window.NativeCarState.setEditing(true);
+  else window.webkit?.messageHandlers?.editing?.postMessage(true);
+  vehiclePicker.showModal();
+}
+$("parkedCar").addEventListener("click", showVehiclePicker);
+vehiclePicker.addEventListener("close", () => {
+  if (window.NativeCarState?.setEditing) window.NativeCarState.setEditing(false);
+  else window.webkit?.messageHandlers?.editing?.postMessage(false);
+});
+vehicleModel.addEventListener("change", () => {
+  const payload = JSON.stringify({ model: vehicleModel.value });
+  try {
+    if (window.NativeCarState?.setAppData) window.NativeCarState.setAppData(payload);
+    else if (window.webkit?.messageHandlers?.appData) window.webkit.messageHandlers.appData.postMessage(payload);
+    else localStorage.setItem("palladium-vehicle", payload);
+  } catch {}
+  if (vehicleState) {
+    carCanvas.classList.remove("ready");
+    vehicleState.model = vehicleModel.value;
+    vehicleScene?.update(vehicleState);
+  }
+});
+
+const gearLetters = [..."PRND"];
+tags($("gears"), gearLetters.map(gear => [gear]));
+let displayedGear = 0, targetGear = 0, gearIsBlue = false, gearTimer;
+function paintGear() {
+  [...$("gears").children].forEach((letter, i) => {
+    letter.classList.toggle("selected", displayedGear === i + 1);
+    letter.classList.toggle("auto", displayedGear === i + 1 && gearIsBlue);
+  });
+}
+function updateGear(gear, assisted) {
+  const next = gearLetters[gear - 1] ? gear : 0;
+  gearIsBlue = assisted;
+  if (targetGear !== next) {
+    targetGear = next;
+    clearTimeout(gearTimer);
+    $("gears").setAttribute("aria-label", next ? "Gear " + gearLetters[next - 1] : "Gear unavailable");
+    const step = () => {
+      if (!displayedGear || !targetGear || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        displayedGear = targetGear;
+      } else {
+        displayedGear += Math.sign(targetGear - displayedGear);
+      }
+      paintGear();
+      if (displayedGear !== targetGear) gearTimer = setTimeout(step, 72);
+    };
+    gearTimer = setTimeout(step, displayedGear && targetGear ? 55 : 0);
+  }
+  paintGear();
+}
 
 function render(s) {
   document.body.classList.toggle("night", !!s.darkMode);
-  const paint = exteriorPaintCodes.has(s.exteriorColor) ? s.exteriorColor : undefined;
   const scene = $("scene");
-  if (paint !== undefined) {
-    scene.style.setProperty("--drive-paint", 'url("paint/drive-' + paint + '.webp")');
-
-  } else {
-    scene.style.removeProperty("--drive-paint");
-
-  }
   const parked = s.gear === 1;
+  const reversing = s.gear === 2;
   const navigating = s.assist === "nav";
   const autopilot = s.assist === "ap" || navigating;
   const fsd = s.assist === "fsd";
   const charging = s.charge != null;
   const takeover = s.driverWarning === "takeover";
-  const carImage = "paint/charge-" + (paint ?? 6) + ".webp";
-  const portrait = $(charging ? "chargingCar" : "parkedCar");
-  if ((parked || charging) && portrait.getAttribute("src") !== carImage) portrait.setAttribute("src", carImage);
   $("cluster").classList.toggle("park-view", parked && !charging);
   $("gears").hidden = charging;
   $("scene").hidden = takeover;
@@ -284,15 +554,32 @@ function render(s) {
   $("scene").classList.toggle("autopilot-lane", s.assist === "ap");
   $("scene").classList.toggle("nav-route-active", navigating);
   $("scene").classList.toggle("fsd-route", fsd);
-  if (!parked) renderLanePreview(s.angle, s.assist);
-  const moving = !parked && !charging && !takeover && s.assist !== "ap" && finite(s.speed);
-  updateLaneMotion(moving ? Math.max(0, speedIn(s.speed, s.units, "km/h")) / 3.6 : 0);
+  scene.classList.toggle("reversing", reversing);
+  const vehicleSpeedKmh = finite(s.vehicleSpeedKmh) && s.vehicleSpeedKmh >= 0 ? s.vehicleSpeedKmh : 0;
+  if (parked || charging || takeover) updateRoadHistory(undefined, 0, 0);
+  const acceleration = updateRibbonAcceleration(vehicleSpeedKmh / 3.6, s.gear);
+  if (!parked && !charging && !takeover) renderLanePreview(s.angle, s.assist, reversing, vehicleSpeedKmh, acceleration);
+  renderVehicle({ ...s, vehicleSpeedKmh }, parked, charging, takeover);
+  const moving = !parked && !charging && !takeover;
+  updateLaneMotion(moving ? (reversing ? -1 : 1) * vehicleSpeedKmh / 3.6 : 0);
   write("vehicleTitle", parked ? "PARKED VEHICLE" : "DRIVING VIEW");
   write("vehicleStatus", parked ? "" : s.locked === true ? "LOCKED" : s.locked === false ? "UNLOCKED" : "");
-  tags($("gears"), [..."PRND"].map((gear, i) => [gear, s.gear === i + 1 ? ((autopilot || fsd) && gear === "D" ? "selected auto" : "selected") : ""]));
-  write("speed", finite(s.speed) ? Math.round(s.speed) : "—");
-  write("units", s.units);
-  write("secondary", finite(s.speed) && s.mapUnits && s.mapUnits !== s.units
+  updateGear(s.gear, autopilot || fsd);
+  const speed = $("speed");
+  const holding = s.lamps?.hold && !parked && !charging;
+  if (holding) {
+    if (!speed.firstElementChild) {
+      const icon = document.createElement("img");
+      icon.className = "speed-hold";
+      icon.src = "icons/brake-hold.svg";
+      icon.alt = "Vehicle Hold";
+      speed.replaceChildren(icon);
+    }
+  } else {
+    write("speed", finite(s.speed) ? Math.round(s.speed) : "—");
+  }
+  write("units", holding ? "HOLD" : s.units);
+  write("secondary", !holding && finite(s.speed) && s.mapUnits && s.mapUnits !== s.units
     ? display(speedIn(s.speed, s.units, s.mapUnits), s.mapUnits) : "");
   const autosteerReady = s.assist === "ready";
   $("assist").hidden = parked || (!autopilot && !autosteerReady);
@@ -301,7 +588,7 @@ function render(s) {
   write("fsdProfileValue", fsd ? s.profile ?? "—" : "");
   const wheel = $("wheel");
   wheel.hidden = !autopilot && !autosteerReady;
-  wheel.src = autopilot ? "icons/autosteer-active.png" : "icons/autosteer-ready.png";
+  wheel.src = autopilot ? "icons/autosteer-active.svg" : "icons/autosteer-ready.svg";
   wheel.alt = autopilot ? "Autopilot active" : "Autosteer available";
   wheel.style.transform = "rotate(" + (autopilot && finite(s.angle) ? s.angle : 0) + "deg)";
   write("assistValue", finite(s.setSpeed) ? Math.round(s.setSpeed) : "—");
@@ -313,48 +600,48 @@ function render(s) {
   $("sign").classList.toggle("three-digits", Math.round(s.limit) >= 100);
   write("limit", finite(s.limit) ? Math.round(s.limit) : "—");
   $("sign").setAttribute("aria-label", "Posted speed limit " + display(s.limit, s.mapUnits ?? s.units));
-  renderPower(charging ? undefined : parked ? { used: 0 } : s.power);
+  renderPower(charging ? undefined : parked ? { used: 0 } : s.power ?? {});
 
-  const demoHazards = s.lamps?.left === "flash" && s.lamps?.right === "flash";
-  $("turnArrows").classList.toggle("signals-flash", demoHazards);
+  $("turnArrows").classList.toggle("signals-flash", !!(s.lamps?.left || s.lamps?.right));
   for (const [key, id] of [["left", "turnArrowLeft"], ["right", "turnArrowRight"]]) {
     const state = s.lamps?.[key];
     $(id).setAttribute("aria-hidden", state ? "false" : "true");
     $(id).classList.toggle("signal-active", !!state);
-    $(id).classList.toggle("signals-flash", state === "flash" && !demoHazards);
-    $(id).classList.toggle("signal-muted", state === "muted");
   }
-  renderTelltales($("telltalesLeft"), s.lamps, leftLamps, s.market ?? s.region);
+  const highBeamActive = s.lamps?.highBeam === true || s.lamps?.autoHighBeam === true;
+  const visibleLamps = {
+    ...s.lamps,
+    lowBeam: !highBeamActive && s.lamps?.lowBeam,
+    parkingLights: !highBeamActive && !s.lamps?.lowBeam && s.lamps?.parkingLights,
+  };
+  renderTelltales($("telltalesLeft"), visibleLamps, leftLamps, s.market ?? s.region);
   renderTelltales($("telltalesRight"), s.lamps, rightLamps, s.market ?? s.region);
   const alert = $("alert");
   const alertText = takeover || prompt || parked ? "" : s.alert ?? "";
   if (alert.textContent !== alertText) alert.textContent = alertText;
-  const closures = [];
-  for (const panel of document.querySelectorAll("[data-panel]")) {
-    const key = panel.dataset.panel;
-    const state = s.closures?.[key] ?? "unknown";
-    const moving = state === "opening" || state === "closing";
-    panel.classList.toggle("open", state === "open" || moving);
-    for (const name of ["ajar", "fault", "unknown"]) panel.classList.toggle(name, state === name);
-    panel.title = panelNames[key] + " · " + state;
-    if (!parked && ["open", "ajar", "fault", "opening", "closing"].includes(state)) {
-      closures.push([panelNames[key] + " · " + state]);
-    }
-  }
-  $("closures").hidden = parked || takeover || !closures.length;
-  tags($("closures"), closures);
-  $("cable").hidden = !s.plugged;
-  if (finite(s.liftgateAngle)) $("scene").style.setProperty("--lift", -clamp(s.liftgateAngle / 80) * 25 + "px");
-  else $("scene").style.removeProperty("--lift");
+  const closureSummary = Object.entries(panelNames).flatMap(([key, name]) => {
+    const state = s.closures?.[key];
+    return ["open", "ajar", "fault", "opening", "closing"].includes(state) ? [name + " " + state] : [];
+  }).join(" · ");
+  const closureStatus = $("closures");
+  closureStatus.hidden = takeover || charging || !closureSummary;
+  if (closureStatus.textContent !== closureSummary) closureStatus.textContent = closureSummary;
 
   if (charging) {
     const c = s.charge;
     const ac = c.kind === "ac";
     $("charge").classList.toggle("charging-ac", ac);
-    const remaining = finite(c.minutes) ? Math.max(0, Math.round(c.minutes)) : undefined;
+    const remaining = finite(c.minutes) && c.minutes >= 0
+      ? (c.minutes < 5 ? c.minutes : Math.round(c.minutes / 5) * 5)
+      : undefined;
     const hours = Math.floor(remaining / 60);
     const minutes = remaining % 60;
-    write("chargeTime", remaining === undefined ? "—" : hours ? hours + " h " + minutes + " min" : minutes + " min");
+    const complete = c.minutes === 0;
+    $("charge").classList.toggle("charge-complete", complete);
+    $("chargeTimeLabel").hidden = complete;
+    const formatted = hours ? hours + " h" + (minutes ? " " + minutes + " min" : "") : minutes + " min";
+    write("chargeTime", complete ? "Charging Complete" :
+      remaining === undefined ? "—" : formatted);
     write("chargePower", display(c.kw, "kW", c.kw < 20 ? 1 : 0));
     $("chargePowerLabel").hidden = !ac;
     $("chargeRateRow").hidden = ac || !finite(c.rangeRateMiles);
@@ -372,38 +659,27 @@ function render(s) {
     }
     write("volts", finite(c.volts) ? display(c.volts, "V") : "");
     write("amps", finite(c.amps) ? current(c.amps) + (hasAcLimit ? "/" + current(acLimit) : "") + " A" : "");
-    write("energy", display(c.energy, "kWh", 1));
-    const rangeAdded = finite(c.ratedRangeMiles) && finite(c.startRatedRangeMiles)
-      ? speedIn(Math.max(0, c.ratedRangeMiles - c.startRatedRangeMiles), "mph", s.units)
-      : c.range;
-    write("range", display(rangeAdded, s.units === "mph" ? "mi" : "km"));
     write("chargeBasis", c.basis ?? "");
   }
   const batteryStatus = $("batteryStatus");
-  batteryStatus.hidden = !finite(s.soc);
+  batteryStatus.hidden = s.showCarBattery === false;
   const enoughEnergy = s.enoughEnergyForConvenienceFeatures;
   const lowPower = enoughEnergy === false || enoughEnergy === 0 ||
     (enoughEnergy !== true && enoughEnergy !== 1 && s.soc <= 20);
   batteryStatus.classList.toggle("battery-low", finite(s.soc) && s.soc > 5 && lowPower);
   batteryStatus.classList.toggle("battery-critical", finite(s.soc) && s.soc <= 5);
   $("batteryLevel").style.width = (finite(s.soc) ? clamp(s.soc / 100) * 100 : 0) + "%";
-  write("batteryPercent", finite(s.soc) ? Math.round(s.soc) + "%" : "");
+  write("batteryPercent", finite(s.soc) ? Math.round(s.soc) + "%" : "--%");
   write("ambientTemperature", finite(s.outside) ? display(s.outside, s.imperial ? "°F" : "°C") : "");
   write("clock", clockFormat.format(finite(s.currentTime) && s.currentTime > 0 ? s.currentTime : Date.now()));
 }
 
-let chargeBaseline;
 function readCharge(raw) {
   const plugged = raw.chargeType === 1 || raw.chargeType === 2;
-  if (raw.chargeType === 0) chargeBaseline = undefined;
-  if (!plugged || raw.chargeTransferState !== 5) return undefined;
+  const complete = raw.chargeMinutes === 0 && [0, 1, 2, 4].includes(raw.chargeTransferState);
+  if (!plugged || (raw.chargeTransferState !== 5 && !complete)) return undefined;
 
   const reading = value => finite(value) && value >= 0 ? value : undefined;
-  const ratedRange = reading(raw.ratedRangeMiles);
-  const meter = reading(raw.chargeMeterKwh);
-  chargeBaseline ??= {};
-  chargeBaseline.energy ??= meter;
-  chargeBaseline.range ??= ratedRange;
   const ac = raw.chargeType === 2;
   return {
     kind: ac ? "ac" : "dc",
@@ -413,20 +689,17 @@ function readCharge(raw) {
     amps: reading(raw.chargeAmps),
     evseAcCurrentLimit: reading(raw.evseAcCurrentLimit),
     numPhases: reading(raw.chargePhases),
-    energy: meter !== undefined && chargeBaseline.energy !== undefined
-      ? Math.max(0, meter - chargeBaseline.energy) : undefined,
-    ratedRangeMiles: ratedRange,
-    startRatedRangeMiles: chargeBaseline.range,
   };
 }
 
 function liveTelltales(mask) {
   const on = bit => (mask & (1 << bit)) !== 0;
   return {
-    parkingLights: on(0), lowBeam: on(1), highBeam: on(2),
+    parkingLights: on(0), lowBeam: on(1), highBeam: on(2) && !on(3),
     autoHighBeam: on(3) && (on(2) || "standby"), fog: on(4), hold: on(5),
-    stability: on(7) ? "flash" : on(6), traction: on(9) ? "flash" : on(8),
+    stability: on(7) || on(9) ? "flash" : on(6) || on(8),
     airbag: on(10), tpms: on(11) && !on(12), tpmsFault: on(12), abs: on(13),
+    parkingBrake: on(15) ? "flash" : on(14), rearFog: on(16),
   };
 }
 
@@ -437,14 +710,13 @@ function fromDashPilot(raw) {
   const hasSpeed = raw.gear && !(raw.dataSourceType === "dashkit" && raw.uiSpeedUnits === -1);
   const nativeSpeedUnits = raw.egoSpeedUnits ?? (raw.uiSpeedUnits === 1 ? "km/h" : raw.uiSpeedUnits === 0 ? "mph" : carUnits);
   const closureState = value => value == null ? "unknown" : value ? "open" : "closed";
-  const capacity = raw.fullPackEnergy - raw.energyBuffer;
   const autosteerReady = raw.autopilotState === 2 && (raw.fsdEnabled === false || raw.fsdEnabled === 0) && raw.autosteerAvailable !== false;
   const assist = raw.autopilotState === 6 ? "fsd" : raw.autopilotState === 5 ? "nav" :
     [3, 4].includes(raw.autopilotState) ? "ap" :
     autosteerReady ? "ready" : undefined;
-  const profiles = ["Chill", "Normal", "Assertive", "Mad Max", "Conservative"];
+  const profiles = ["Chill", "Standard", "Hurry", "Mad Max", "Sloth"];
   return {
-    gear: raw.gear, speed: hasSpeed ? speedIn(raw.egoSpeed, nativeSpeedUnits, carUnits) : undefined,
+    gear: raw.gear, vehicleSpeedKmh: raw.vehicleSpeedKmh, speed: hasSpeed ? speedIn(raw.egoSpeed, nativeSpeedUnits, carUnits) : undefined,
     units: carUnits, mapUnits, region: raw.market === "ca" ? "ca" : raw.mapRegion === 1 ? "eu" : "us",
     market: raw.market,
     limit: raw.mapLimit > 0 ? raw.mapLimit : raw.fusedSpeedLimit < 155 ? raw.fusedSpeedLimit : undefined,
@@ -462,8 +734,8 @@ function fromDashPilot(raw) {
     charge: raw.charge ? { ...raw.charge, evseAcCurrentLimit: raw.charge.evseAcCurrentLimit ?? raw.evseAcCurrentLimit ?? raw.CP_evseAcCurrentLimit } : readCharge(raw),
     plugged: raw.plugged ?? (raw.chargeType === 1 || raw.chargeType === 2),
     lamps: { ...liveTelltales(raw.telltaleBits), ...raw.telltales,
-      left: raw.leftBlinker == null ? raw.telltales?.left : raw.leftBlinker === 2 || (raw.leftBlinker === 1 && "muted"),
-      right: raw.rightBlinker == null ? raw.telltales?.right : raw.rightBlinker === 2 || (raw.rightBlinker === 1 && "muted"),
+      left: raw.leftBlinker == null ? raw.telltales?.left : raw.leftBlinker === 2 || raw.leftBlinker === 1,
+      right: raw.rightBlinker == null ? raw.telltales?.right : raw.rightBlinker === 2 || raw.rightBlinker === 1,
       door: !!raw.anyDoorOpen, belt: raw.buckleStatus === 0 },
     alert: raw.driverAlert ?? (raw.changingLane ? "Changing lane" :
       raw.speedCameraDistance > 0 ? "Speed camera · " + raw.speedCameraDistance + " m" : ""),
@@ -472,19 +744,19 @@ function fromDashPilot(raw) {
     exteriorColor: raw.exteriorColor,
     enoughEnergyForConvenienceFeatures: raw.enoughEnergyForConvenienceFeatures ?? raw.BMS_enoughEnergyForConvenienceFe,
     outside: raw.ambientTempC > -100 ? (raw.isImperial ? raw.ambientTempC * 1.8 + 32 : raw.ambientTempC) : undefined,
-    soc: raw.showCarBattery === false ? undefined : finite(raw.soc) && raw.soc >= 0 ? raw.soc :
-      capacity > 0 && raw.nominalEnergyRemaining > 0 ? clamp((raw.nominalEnergyRemaining - raw.energyBuffer) / capacity) * 100 : undefined,
+    showCarBattery: raw.showCarBattery,
+    soc: raw.showCarBattery !== false && finite(raw.soc) && raw.soc >= 0 && raw.soc <= 100 ? raw.soc : undefined,
   };
 }
 
 const nativeKeys = [
-  "egoSpeed", "gear", "egoSteeringAngle", "leftBlinker", "rightBlinker", "accSetSpeed", "fusedSpeedLimit",
+  "egoSpeed", "vehicleSpeedKmh", "gear", "egoSteeringAngle", "leftBlinker", "rightBlinker", "accSetSpeed", "fusedSpeedLimit",
   "anyDoorOpen", "doorOpenFL", "doorOpenFR", "doorOpenRL", "doorOpenRR", "trunkOpen", "trunkPosition",
   "frunkOpen", "buckleStatus", "isImperial", "showCarBattery", "nominalEnergyRemaining", "energyBuffer",
   "fullPackEnergy", "powerLevel", "currentTime",
   "speedCameraDistance", "changingLane", "dataSourceType", "distanceUnits", "mapSpeedUnits", "mapRegion",
   "mapLimit", "market", "fsdEnabled", "autosteerAvailable", "autopilotState", "autopilotAborting", "autopilotHandsOnState", "handsOnReason", "attentionBasedDriverMonitorOn", "drivingProfile", "ambientTempC", "darkMode", "displayInDarkMode", "exteriorColor", "enoughEnergyForConvenienceFeatures",
-  "uiSpeedUnits", "soc", "chargeTransferState", "chargeType", "chargeMinutes", "ratedRangeMiles", "chargeVolts", "chargeAmps", "chargeInputKw", "evseAcCurrentLimit", "chargePhases", "batteryInputKw", "chargeMeterKwh", "telltaleBits"
+  "uiSpeedUnits", "soc", "chargeTransferState", "chargeType", "chargeMinutes", "chargeVolts", "chargeAmps", "chargeInputKw", "evseAcCurrentLimit", "chargePhases", "batteryInputKw", "telltaleBits"
 ];
 
 let live = false;
@@ -531,8 +803,9 @@ function demo() {
   if (mode === "park") Object.assign(closures, { frontLeft: "open", rearRight: "ajar", frunk: "open", liftgate: "open" });
   if (plugged) closures.chargePort = "open";
   render({
-    gear: parked ? 1 : 4, assist: mode, profile: $("demoFsdProfile").value, angle: Number($("steering").value),
+    gear: parked ? 1 : mode === "reverse" ? 2 : mode === "neutral" ? 3 : 4, assist: mode, profile: $("demoFsdProfile").value, angle: Number($("steering").value),
     units, mapUnits: region === "us" ? "mph" : "km/h", region,
+    vehicleSpeedKmh: parked ? 0 : Number($("demoSpeed").value),
     speed: parked ? 0 : speedIn(Number($("demoSpeed").value), "km/h", units),
     setSpeed: speedIn(113, "km/h", units), limit: region === "us" ? 65 : 100,
     power: parked ? { used: 0 } : { used: mode === "fsd" ? -.34 : .42, driveFraction: .79, regenFraction: .73 },
@@ -541,8 +814,8 @@ function demo() {
     driverWarning: parked ? undefined : $("demoAlert").value,
     driverWarningEscalated: $("demoAlertEscalated").checked,
     charge: plugged ? { kind: dc ? "dc" : "ac", rangeRateMiles: dc ? 410 : 13, volts: dc ? 392 : 240,
-      amps: dc ? 310 : 16, evseAcCurrentLimit: dc ? undefined : 32, kw: dc ? 121.5 : 3.84, energy: dc ? 23.4 : 8.6,
-      ratedRangeMiles: 201, startRatedRangeMiles: dc ? 113 : 169, minutes: dc ? 14 : 95 } : undefined,
+      amps: dc ? 310 : 16, evseAcCurrentLimit: dc ? undefined : 32, kw: dc ? 121.5 : 3.84,
+      minutes: dc ? 14 : 95 } : undefined,
     soc, enoughEnergyForConvenienceFeatures: Number($("demoConvenienceEnergy").value), darkMode: $("demoDarkMode").checked, exteriorColor: Number($("demoPaint").value), imperial, outside: imperial ? 61 : 16,
   });
   for (const button of document.querySelectorAll("[data-mode]")) {

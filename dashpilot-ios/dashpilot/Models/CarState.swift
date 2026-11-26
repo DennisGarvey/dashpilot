@@ -68,6 +68,7 @@ struct CarState: Codable {
     var batteryInputKw: Double = -1
     var chargeMeterKwh: Double = -1
     var telltaleBits: Double = 0
+    var vehicleSpeedKmh: Double = -1
 
     // Openpilot state
     var madsActive: Bool = false
@@ -165,6 +166,7 @@ struct CarState: Codable {
         batteryInputKw = bridge.batteryInputKw
         chargeMeterKwh = bridge.chargeMeterKwh
         telltaleBits = bridge.telltaleBits
+        vehicleSpeedKmh = bridge.vehicleSpeedKmh
         madsActive = bridge.madsActive > 0
         selfdriveActive = bridge.selfdriveActive > 0
         experimentalMode = bridge.experimentalMode > 0
@@ -277,6 +279,7 @@ struct CarState: Codable {
         batteryInputKw = try c.decodeIfPresent(Double.self, forKey: .batteryInputKw) ?? -1
         chargeMeterKwh = try c.decodeIfPresent(Double.self, forKey: .chargeMeterKwh) ?? -1
         telltaleBits = try c.decodeIfPresent(Double.self, forKey: .telltaleBits) ?? 0
+        vehicleSpeedKmh = try c.decodeIfPresent(Double.self, forKey: .vehicleSpeedKmh) ?? -1
         madsActive           = try c.decodeIfPresent(Bool.self,  forKey: .madsActive)           ?? false
         selfdriveActive      = try c.decodeIfPresent(Bool.self,  forKey: .selfdriveActive)      ?? false
         experimentalMode     = try c.decodeIfPresent(Bool.self,  forKey: .experimentalMode)     ?? false

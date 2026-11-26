@@ -198,6 +198,7 @@ class CarStateBridge(
     @JavascriptInterface fun getChargePhases(): Double = instrumentState.chargePhases
     @JavascriptInterface fun getBatteryInputKw(): Double = instrumentState.batteryInputKw
     @JavascriptInterface fun getChargeMeterKwh(): Double = instrumentState.chargeMeterKwh
+    @JavascriptInterface fun getVehicleSpeedKmh(): Double = instrumentState.vehicleSpeedKmh
     @JavascriptInterface fun getTelltaleBits(): Double = instrumentState.telltaleBits
     @JavascriptInterface fun isAlwaysOnBlindSpotMonitor(): Boolean = alwaysOnBlindSpotMonitor
     @JavascriptInterface fun getRenderQuality(): Int = renderQuality

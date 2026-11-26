@@ -19,7 +19,19 @@ final class AppSchemeHandler: NSObject, WKURLSchemeHandler {
         }
 
         if path.hasPrefix("/") { path = String(path.dropFirst()) }
-        let fileURL = bundleDir.appendingPathComponent(path)
+        let sharedVehicleAssets: Set<String> = [
+            "scene.js", "model_3.glb", "model_3_2025.glb", "model_y.glb", "model_y_2025.glb",
+        ]
+        let assetName = String(path.dropFirst("web-vanilla-v2/".count))
+        let fileURL: URL
+        if bundleDir.lastPathComponent == "web-aperture", path.hasPrefix("web-vanilla-v2/"),
+           sharedVehicleAssets.contains(assetName) {
+            fileURL = bundleDir.deletingLastPathComponent()
+                .appendingPathComponent("web-vanilla-v2")
+                .appendingPathComponent(assetName)
+        } else {
+            fileURL = bundleDir.appendingPathComponent(path)
+        }
 
         guard !path.hasSuffix(".meta") else {
             let response = HTTPURLResponse(url: requestURL, statusCode: 404,
@@ -128,6 +140,9 @@ struct WebDashView: UIViewRepresentable {
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.scrollView.isScrollEnabled = false
+        if url == "aperture" {
+            webView.scrollView.contentInsetAdjustmentBehavior = .never
+        }
         webView.navigationDelegate = context.coordinator
         webView.backgroundColor = .black
         webView.isOpaque = false

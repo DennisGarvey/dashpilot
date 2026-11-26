@@ -44,7 +44,7 @@ for name in "${FOLDERS[@]}"; do
   # Copy into the app bundle when running inside Xcode
   if [ -n "${BUILT_PRODUCTS_DIR:-}" ] && [ -n "${CONTENTS_FOLDER_PATH:-}" ]; then
     dst="${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/${name}"
-    cp -R "$src/" "$dst/"
+    rsync -a --delete "$src/" "$dst/"
     rm -f "$dst"/preview.* "$dst"/README.md
     echo "Copied $name -> app bundle"
   else

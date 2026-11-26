@@ -32,7 +32,7 @@ let availableDashboards: [DashboardConfig] = [
     ),
     DashboardConfig(
         id: "aperture",
-        name: "Aperture",
+        name: "Palladium",
         url: "aperture",
         type: .web,
         screenshotName: "preview_aperture"
