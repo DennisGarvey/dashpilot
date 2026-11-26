@@ -30,6 +30,8 @@ const val PREF_PINNED_CONTROL = "pinned_control"
 
 // Automations
 const val PREF_WIPER_OFF_AUTOMATION = "wiper_off_automation"
+const val PREF_SIGNAL_OFF_AUTOMATION = "signal_off_automation"
+const val PREF_TOUCH_AUTO_HIGH_BEAM_AUTOMATION = "auto_high_beam_hold_automation"
 const val PREF_CLIMATE_KEEP_AUTOMATION = "climate_keep_automation"
 const val PREF_CLIMATE_KEEP_MINUTES = "climate_keep_minutes"
 const val PREF_SPORT_KICKDOWN_AUTOMATION = "sport_kickdown_automation"
@@ -194,6 +196,24 @@ fun getWiperOffAutomation(context: Context): Boolean =
 fun setWiperOffAutomation(context: Context, value: Boolean) {
     context.getSharedPreferences(DASH_PREFS_NAME, Context.MODE_PRIVATE)
         .edit { putBoolean(PREF_WIPER_OFF_AUTOMATION, value) }
+}
+
+fun getSignalOffAutomation(context: Context): Boolean =
+    context.getSharedPreferences(DASH_PREFS_NAME, Context.MODE_PRIVATE)
+        .getBoolean(PREF_SIGNAL_OFF_AUTOMATION, false)
+
+fun setSignalOffAutomation(context: Context, value: Boolean) {
+    context.getSharedPreferences(DASH_PREFS_NAME, Context.MODE_PRIVATE)
+        .edit { putBoolean(PREF_SIGNAL_OFF_AUTOMATION, value) }
+}
+
+fun getTouchAutoHighBeamAutomation(context: Context): Boolean =
+    context.getSharedPreferences(DASH_PREFS_NAME, Context.MODE_PRIVATE)
+        .getBoolean(PREF_TOUCH_AUTO_HIGH_BEAM_AUTOMATION, false)
+
+fun setTouchAutoHighBeamAutomation(context: Context, value: Boolean) {
+    context.getSharedPreferences(DASH_PREFS_NAME, Context.MODE_PRIVATE)
+        .edit { putBoolean(PREF_TOUCH_AUTO_HIGH_BEAM_AUTOMATION, value) }
 }
 
 fun getClimateKeepAutomation(context: Context): Boolean =

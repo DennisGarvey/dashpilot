@@ -13,8 +13,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Row
@@ -87,18 +85,12 @@ import com.softwiredtech.dashpilot.ui.ThemePickerScreen
 import com.softwiredtech.dashpilot.ui.onboarding.OnboardingScreen
 import com.softwiredtech.dashpilot.ui.tesla.TeslaEnrollFlow
 import com.softwiredtech.dashpilot.ui.theme.DashPilotTheme
-import com.softwiredtech.dashpilot.util.NetworkUtil
 import com.softwiredtech.dashpilot.viewmodel.ConnectionViewModel
 import com.softwiredtech.dashpilot.viewmodel.SpeedCameraViewModel
 
 class MainActivity : ComponentActivity() {
-    private val networkUtil by lazy { NetworkUtil(applicationContext) }
     // Activity-owned: all tabs and live dashboards share this connection and its state.
-    private val connectionVM: ConnectionViewModel by viewModels {
-        viewModelFactory {
-            initializer { ConnectionViewModel(networkUtil) }
-        }
-    }
+    private val connectionVM: ConnectionViewModel by viewModels()
 
     private val speedCameraVM: SpeedCameraViewModel by viewModels()
 
@@ -201,6 +193,8 @@ class MainActivity : ComponentActivity() {
                 val activityState by lifecycle.currentStateFlow.collectAsState()
                 val pinnedControl by connectionVM.pinnedControl.collectAsState()
                 val wiperOffAutomation by connectionVM.wiperOffAutomation.collectAsState()
+                val signalOffAutomation by connectionVM.signalOffAutomation.collectAsState()
+                val touchAutoHighBeamAutomation by connectionVM.touchAutoHighBeamAutomation.collectAsState()
                 val carModel by connectionVM.carModel.collectAsState()
                 val climateKeepAutomation by connectionVM.climateKeepAutomation.collectAsState()
                 val climateKeepMinutes by connectionVM.climateKeepMinutes.collectAsState()
@@ -261,10 +255,7 @@ class MainActivity : ComponentActivity() {
                         }
                         ConnectionViewModel.StartupRoute.AUTOCONNECT_DASHKIT ->
                             connectionVM.connect(context, "", DataSourceType.DASHKIT)
-                        ConnectionViewModel.StartupRoute.DEFAULT ->
-                            if (!BuildConfig.DEBUG) {
-                                connectionVM.connect(context, "", DataSourceType.COMMA)
-                            }
+                        ConnectionViewModel.StartupRoute.DEFAULT,
                         ConnectionViewModel.StartupRoute.LOADING -> Unit
                     }
                 }
@@ -440,6 +431,14 @@ class MainActivity : ComponentActivity() {
                                     wiperOffEnabled = wiperOffAutomation,
                                     onWiperOffChange = {
                                         connectionVM.updateWiperOffAutomation(context, it)
+                                    },
+                                    touchAutoHighBeamEnabled = touchAutoHighBeamAutomation,
+                                    onTouchAutoHighBeamChange = {
+                                        connectionVM.updateTouchAutoHighBeamAutomation(context, it)
+                                    },
+                                    signalOffEnabled = signalOffAutomation,
+                                    onSignalOffChange = {
+                                        connectionVM.updateSignalOffAutomation(context, it)
                                     },
                                     climateKeepEnabled = climateKeepAutomation,
                                     onClimateKeepChange = {
